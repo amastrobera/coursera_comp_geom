@@ -3,7 +3,7 @@
 outputs = LEFT, RIGHT, ON_SEGMENT, ON_LINE (following the same straight line)
 
 **requirements**
-language: C++ (any) 
+language: C++ 11 
 OS: ubuntu 18.04
 compiler: g++ v 7.4.0 (lower version is also fine)
 

@@ -1,0 +1,303 @@
+/*
+c++ std: any
+compiler: g++ v 7.4.0
+
+compile with 
+g++ -I.  main.cpp
+
+launch with
+cat data.txt | ./a.out 
+*/
+
+#include <iostream>
+#include <sstream>
+#include <string>
+#include <vector>
+
+
+namespace crs {
+
+struct Point {
+    double x,y;
+    
+    Point() {} 
+    
+    Point(double c1, double c2) : x(c1), y(c2) { }
+    
+    Point& operator=(Point const& cp) {
+        if (this != &cp) {
+            x = cp.x;
+            y = cp.y;
+        }
+        return *this;
+    }
+    
+    Point(Point const& cp) {
+        *this = cp;
+    }
+};
+
+
+bool operator==(Point const& p1, Point const& p2) {
+    return p1.x == p2.x && p1.y == p2.y;
+}
+
+bool operator!=(Point const& p1, Point const& p2) {
+    return !(p1 == p2);
+}
+
+std::ostream& operator<<(std::ostream& os, Point p) {
+    os << p.x << " " << p.y;
+    return os;
+}
+
+
+
+struct Segment {
+
+    Point a, b;
+    
+    Segment(Point const& p1, Point const& p2) : a(p1), b(p2) {}
+
+    std::string point_location(Point c) {
+        
+        double d = det(a, b, c);
+        
+        if (d > 0)
+            return "LEFT";
+        if (d < 0)
+            return "RIGHT";
+        
+        // determinant is zero. check if the point is on the line of on segment
+        //      according to the location of AB
+        // I want to simply check xmin <= c.x <= xmax AND ymin <= c.y <= ymax
+        //      so I determine the min/max for AB, then apply the check
+        double xmin, xmax;
+        if (b.x >= a.x) {
+            xmin = a.x;
+            xmax = b.x;
+        } else {
+            xmin = b.x;
+            xmax = a.x;
+        }
+        double ymin, ymax;
+        if (b.y >= a.y) {
+            ymin = a.y;
+            ymax = b.y;
+        } else {
+            ymin = b.y;
+            ymax = a.y;
+        }
+        
+        if (c.x >= xmin && c.x <= xmax && 
+            c.y >= ymin && c.y <= ymax)
+            return "ON_SEGMENT";
+        return "ON_LINE";
+    }
+
+private:
+    double det(Point a, Point b, Point c) {
+        return (b.x - a.x)*(c.y- a.y) - (c.x - a.x)*(b.y - a.y);
+    }
+};
+
+bool operator==(Segment const& s1, Segment const& s2) {
+    // if (a,b) are coincident the segments are equal
+    //  note: I am not considering that (a,b) == (b,a) 
+    //        equal size but different direction
+    return s1.a.x == s2.a.x && s1.a.y == s2.a.y &&  
+           s1.b.x == s2.b.x && s1.b.y == s2.b.y;
+}
+
+bool operator!=(Segment const& s1, Segment const& s2) {
+    // if (a,b) are coincident the segments are equal
+    //  note: I am not considering that (a,b) == (b,a) 
+    //        equal size but different direction
+    return !(s1 == s2);
+}
+
+
+std::ostream& operator<<(std::ostream& os, Segment s) {
+    os << "line (" << s.a << "," << s.b  << ")";
+    return os;
+}
+
+
+
+
+struct Polygon {
+
+    std::vector<Point> vertices;
+
+    bool is_valid() {
+        // checks that the polygon has at least 3 edges
+        //      and those are in counter-clockwise
+        if (vertices.size() < 3)
+            return false;
+            
+        bool is_ccw = true;
+        size_t n = vertices.size();
+        
+        for (size_t i1 = 0; i1 < n; ++i1) {
+        
+            size_t i2 = (i1 + 1) % n; // circular list! 
+            size_t i3 = (i1 + 2) % n;
+            
+            Segment seg(vertices[i1], vertices[i2]);
+            
+            if (seg.point_location(vertices[i3]) == "LEFT")
+                is_ccw &= true;
+            else {
+                is_ccw = false;
+                break;
+            }
+        }
+        
+        return is_ccw;
+    }
+
+
+    std::string point_location(Point const& p) {
+    
+        bool is_inside = true;
+        bool is_border = false;
+        
+        size_t n = vertices.size();
+        
+        for (size_t i1 = 0; i1 < n; ++i1) {
+        
+            size_t i2 = (i1 + 1) % n; // circular list! 
+            
+            Segment seg(vertices[i1], vertices[i2]);
+            
+            std::string loc = seg.point_location(p);
+            
+            if (loc == "LEFT")
+                is_inside &= true;
+            else if (loc == "ON_SEGMENT") {
+                is_border = true;
+                break;
+            } else {
+                is_inside = false;
+                break;
+            }
+        }
+    
+        if (is_border)
+            return "BORDER";
+        
+        if (is_inside)
+            return "INSIDE";
+            
+        return "OUTSIDE";
+
+    }
+
+
+};
+
+std::ostream& operator<<(std::ostream& os, Polygon p) {
+    os << "polygon (";
+    for (size_t i = 0; i < p.vertices.size(); ++i) {
+        os << p.vertices[i];
+        if (i < p.vertices.size() - 1)
+            os << ",";
+    }
+    os << ")";
+    return os;
+}
+
+
+
+} 
+
+
+int main() {
+
+    using namespace std;
+
+
+    // find how many vertices there are
+    int numverts;
+    string inputNumVerts;
+    getline(cin, inputNumVerts);
+    istringstream(inputNumVerts) >> numverts;
+
+    if (numverts >= 3 && numverts <= 200) {
+
+        // get vertices  
+        string strPoly;
+        getline(cin, strPoly);
+        istringstream streamPoly(strPoly);
+
+        crs::Polygon poly;
+
+        while (numverts--) {
+
+            crs::Point vert;
+            string strCoord;
+            
+            getline(streamPoly, strCoord, ' ');
+            istringstream(strCoord) >> vert.x;
+            
+            getline(streamPoly, strCoord, ' ');
+            istringstream(strCoord) >> vert.y;
+            
+            poly.vertices.push_back(vert);
+            
+        }
+
+        if (poly.is_valid()) {
+
+            int numpoints;
+            string inputNumPoints;
+            getline(cin, inputNumPoints);
+            istringstream(inputNumPoints) >> numpoints;
+
+            if (numpoints >= 1 && numpoints <= 200) {
+            
+                string inputpoint;
+                getline(cin, inputpoint);
+                istringstream ptStream(inputpoint);
+
+                // put segment data into Segment class from input stream
+                string inputxy;
+                crs::Point point;
+                getline(ptStream, inputxy, ' ');
+                istringstream(inputxy) >> point.x;
+                getline(ptStream, inputxy, ' ');
+                istringstream(inputxy) >> point.y;
+
+                string location = poly.point_location(point);
+
+                // debug
+                // cout << point << " is " << location << endl;
+
+                // result
+                cout << location << endl;
+            
+            
+            } else {
+        
+                cerr << "bad input n(points) " 
+                     << numpoints << " not in [1, 200]" << endl;
+
+            }
+
+        } else {
+    
+            cerr << "bad input, invalid " << poly << endl;
+
+        }
+
+    } else {
+    
+        cerr << "bad input n(vertices) " << numverts << " not in [3, 200]" << endl;
+
+    }
+    
+    
+
+
+    return 0;
+}

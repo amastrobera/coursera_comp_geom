@@ -1,4 +1,5 @@
 /*
+c++ std: 11
 compiler: g++ v 7.4.0
 
 compile with 
@@ -8,6 +9,8 @@ launch with
 cat data.txt | ./a.out 
 */
 
+#include <cmath> // abs
+#include <cstdio> // exit
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -18,6 +21,12 @@ namespace crs {
 struct Point {
     double x,y;
 };
+
+std::ostream& operator<<(std::ostream& os, Point p) {
+    os << p.x << " " << p.y;
+    return os;
+}
+
 
 
 struct Segment {
@@ -59,6 +68,10 @@ struct Segment {
             return "ON_SEGMENT";
         return "ON_LINE";
     }
+    
+    double length() {
+        return std::sqrt(std::pow(b.x-a.x, 2) + std::pow(b.y-a.y, 2));
+    }
 
 private:
     double det(Point a, Point b, Point c) {
@@ -89,6 +102,11 @@ int main() {
     istringstream(inputdata) >> segment.b.x;
     getline(segStream, inputdata, ' ');
     istringstream(inputdata) >> segment.b.y;
+    
+    if (!segment.length()) {
+        cerr << "invalid segment: dengenerate, (size = 0)" << endl; 
+        exit(1);
+    }
 
 
     // debug
@@ -101,6 +119,14 @@ int main() {
     string inputnum;
     getline(cin, inputnum);
     istringstream(inputnum) >> numdata;
+
+
+    if (!(numdata >= 1 && numdata <= 10^4)) {
+        cerr << "invalid input n(points) > 1000" << endl; 
+        exit(1);
+    }
+
+    double input_limit = 10^4;
 
     // get points and evaluate each one
     while (numdata--) {
@@ -117,6 +143,12 @@ int main() {
         getline(ptStream, inputxy, ' ');
         istringstream(inputxy) >> point.y;
  
+        if (abs(point.x) > input_limit || abs(point.y) > input_limit) {
+            cerr << "bad input, invalid entry, " 
+                 << point << " exceeds limit " << input_limit << endl;
+            continue;
+        }
+
         string location = segment.point_location(point);
 
         // debug
@@ -126,7 +158,7 @@ int main() {
         cout << location << endl;
 
     }
-
+    
 
     return 0;
 }

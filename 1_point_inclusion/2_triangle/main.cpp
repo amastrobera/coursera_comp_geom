@@ -9,6 +9,8 @@ launch with
 cat data.txt | ./a.out 
 */
 
+#include <cmath>
+#include <cstdio> // exit
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -82,6 +84,10 @@ struct Segment {
             c.y >= ymin && c.y <= ymax)
             return "ON_SEGMENT";
         return "ON_LINE";
+    }
+    
+    double length() {
+        return std::sqrt(std::pow(b.x-a.x, 2) + std::pow(b.y-a.y, 2));
     }
 
 private:
@@ -178,9 +184,10 @@ struct Triangle {
 
 
     bool is_valid() {
-        // checks that the triangle is a closed set of points
+        // checks that the triangle is a closed set of points, non zero-length
         //      (does not check if segments are in counter-clockwise)
-        return    s1 != s2 && s2 != s3 && s3 != s1 
+        return    s1.length() > 0 && s2.length() > 0 && s3.length() > 0
+               && s1 != s2 && s2 != s3 && s3 != s1 
                && s1.b == s2.a && s2.b == s3.a && s3.b == s1.a;
     }
 
@@ -276,46 +283,60 @@ int main() {
     triangle.s3.b = p1;
 
 
-    if (triangle.is_valid()) {   
+    if (!triangle.is_valid()) { 
+        cerr << "invalid input " << triangle << endl; 
+        exit(1);  
+    }  
+
+    // debug
+    //cout << "got " << triangle << endl;
+
+    // find how many input there are 
+    int numdata;
+    string inputnum;
+    getline(cin, inputnum);
+    istringstream(inputnum) >> numdata;
+
+
+    if (!(numdata >= 1 && numdata <= 10^4)) {
+        cerr << "invalid input n(points) > 1000" << endl; 
+        exit(1);
+    }
+
+    double input_limit = 10^4;
+
+    // get points and evaluate each one
+    while (numdata--) {
+        
+        string inputpoint;
+        getline(cin, inputpoint);
+        istringstream ptStream(inputpoint);
+
+        // put segment data into Segment class from input stream
+        string inputxy;
+        crs::Point point;
+        getline(ptStream, inputxy, ' ');
+        istringstream(inputxy) >> point.x;
+        getline(ptStream, inputxy, ' ');
+        istringstream(inputxy) >> point.y;
+        
+
+        if (abs(point.x) > input_limit || abs(point.y) > input_limit) {
+            cerr << "bad input, invalid entry, " 
+                 << point << " exceeds limit " << input_limit << endl;
+            continue;
+        }
+ 
+        string location = triangle.point_location(point);
 
         // debug
-        //cout << "got " << triangle << endl;
+        // cout << point << " is " << location << endl;
 
-        // find how many input there are 
-        int numdata;
-        string inputnum;
-        getline(cin, inputnum);
-        istringstream(inputnum) >> numdata;
+        // result
+        cout << location << endl;
 
-        // get points and evaluate each one
-        while (numdata--) {
-            
-            string inputpoint;
-            getline(cin, inputpoint);
-            istringstream ptStream(inputpoint);
-
-            // put segment data into Segment class from input stream
-            string inputxy;
-            crs::Point point;
-            getline(ptStream, inputxy, ' ');
-            istringstream(inputxy) >> point.x;
-            getline(ptStream, inputxy, ' ');
-            istringstream(inputxy) >> point.y;
-     
-            string location = triangle.point_location(point);
-
-            // debug
-            // cout << point << " is " << location << endl;
-
-            // result
-            cout << location << endl;
-
-        }
-        
-    } else {
-    
-        cerr << triangle << " is invalid" << endl;
     }
+
 
 
     return 0;

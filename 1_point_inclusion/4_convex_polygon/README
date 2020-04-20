@@ -1,12 +1,14 @@
+4. verify that a point is inside a (convex) polygon 
 
-2. verify if a point is inside a triangle 
+it is guaranteed that:
+- vertices are in counter clockwise order
+- no 3 consecutive vertices are on the same line
 
-(the triangle's edges are not guaranteed to be in counter-clockwise order)
 
 outputs =  BORDER, OUTSIDE, INSIDE
 
 **requirements**
-language: C++ 11
+language: C++ (11) 
 OS: ubuntu 18.04
 compiler: g++ v 7.4.0 (lower version is also fine)
 
@@ -18,5 +20,4 @@ g++ -I. main.cpp   # will output a.out
 **launch with**
 ```
 cat data_short.txt | ./a.out 
-cat data_long.txt | ./a.out
 ```

@@ -1,6 +1,4 @@
 /*
-name: Angelo MAstroberardino
-
 compiler: g++ v 7.4.0
 
 compile with 
@@ -14,9 +12,8 @@ cat data.txt | ./a.out
 #include <sstream>
 #include <string>
 
-using namespace std;
 
-namespace {
+namespace crs {
 
 struct Point {
     double x,y;
@@ -27,7 +24,7 @@ class Segment {
 public:
     Point a, b;
 
-    string point_location(Point c) {
+    std::string point_location(Point c) {
         
         double d = det(a, b, c);
         
@@ -74,13 +71,15 @@ private:
 
 int main() {
 
+    using namespace std;
+
     // load the segment from input
     string inputseg;
     getline(cin, inputseg);
     istringstream segStream(inputseg);
 
     // put segment data into Segment class from input stream
-    Segment segment;
+    crs::Segment segment;
     string inputdata;
     getline(segStream, inputdata, ' ');
     istringstream(inputdata) >> segment.a.x;
@@ -112,7 +111,7 @@ int main() {
 
         // put segment data into Segment class from input stream
         string inputxy;
-        Point point;
+        crs::Point point;
         getline(ptStream, inputxy, ' ');
         istringstream(inputxy) >> point.x;
         getline(ptStream, inputxy, ' ');

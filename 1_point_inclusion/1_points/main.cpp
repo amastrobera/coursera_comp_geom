@@ -20,8 +20,8 @@ struct Point {
 };
 
 
-class Segment {
-public:
+struct Segment {
+
     Point a, b;
 
     std::string point_location(Point c) {

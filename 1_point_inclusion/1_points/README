@@ -1,3 +1,6 @@
+1. Verify where a point is located against a Segment
+
+outputs = LEFT, RIGHT, ON_SEGMENT, ON_LINE (following the same straight line)
 
 **requirements**
 language: C++ (any) 

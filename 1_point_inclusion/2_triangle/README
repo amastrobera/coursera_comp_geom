@@ -1,0 +1,22 @@
+
+2. verify if a point is inside a triangle 
+
+(the triangle's edges are not guaranteed to be in counter-clockwise order)
+
+outputs =  BORDER, OUTSIDE, INSIDE
+
+**requirements**
+language: C++ (any) 
+OS: ubuntu 18.04
+compiler: g++ v 7.4.0 (lower version is also fine)
+
+**compile with**
+```
+g++ -I. main.cpp   # will output a.out
+```
+
+**launch with**
+```
+cat data_short.txt | ./a.out 
+cat data_long.txt | ./a.out
+```

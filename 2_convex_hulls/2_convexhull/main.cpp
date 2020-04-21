@@ -9,10 +9,12 @@ launch with
 cat data.txt | ./a.out 
 */
 
-#include <algorithm> // sort
 #include <cmath>
 #include <cstdio> // exit
+#include <functional> 
 #include <iostream>
+#include <iterator>
+#include <list>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -262,85 +264,94 @@ std::ostream& operator<<(std::ostream& os, Polygon p) {
 }
 
 
-Polygon convex_hull(std::vector<Point> points) {
+std::list<Point> _half_hull(std::vector<Point> const& points, 
+                    std::function<bool(Point const&, Point const&)> sorter_function) {
 
+    // make temporary opertions on the linked list    
+    std::list<Point> spoints(points.begin(), points.end());
+    spoints.sort(sorter_function);
+    
+    std::list<Point> cvpoints(spoints.begin(), std::next(spoints.begin(), 2));
+    
+    // HalfHull(P)
+    for (std::list<Point>::const_iterator it = std::next(spoints.begin(), 2); 
+           it != spoints.end(); ++it) {
+        
+        cvpoints.push_back(*it);
+
+        auto it3 = std::prev(cvpoints.end(), 1);
+        auto it2 = std::prev(it3, 1);
+        auto it1 = std::prev(it3, 2);
+        
+        Segment seg(*it1, *it2);
+        std::string loc = seg.point_location(*it3);
+        
+        while (it1 != std::prev(cvpoints.begin(), 1) && 
+                (loc == "RIGHT" || loc == "ON_LINE")) {
+            
+            *it2 = *it3;
+            cvpoints.erase(std::next(it2, 1));
+            
+            --it1;
+            --it2;
+            --it3;
+
+            seg.a = *it1;
+            seg.b = *it2;
+            loc = seg.point_location(*it3);
+        }
+        
+        // end condition of HalfHull(P): reached the last point 
+        if (*(--(cvpoints.end())) == *(--(spoints.end())))
+            break;
+    }
+
+    return std::move(cvpoints);
+}
+
+
+
+Polygon convex_hull(std::vector<Point> const& points) {
 
     Polygon cvpoly;
     
-    // sorted in DESC order (max .... min)
-    std::sort(points.begin(), points.end(), 
-            [](Point const& p1, Point const& p2) {
-                return p1.x > p2.x;
-            });
-    
-    std::vector<Point>& cvpoints = cvpoly.vertices;
-    
     size_t n = points.size();
-    if (n) 
-        cvpoints.push_back(points[0]);
-
-    if (n > 1) 
-        cvpoints.push_back(points[1]);
-        
+    
     if (n > 2) {
-        // UpperHull(P)
-        for (size_t i = 2; i < n; ++i) {
-            size_t i1 = i - 2;
-            size_t i2 = i - 1;
-            size_t i3 = i;
-            cvpoints.push_back(points[i3]);
-            
-            Segment seg(cvpoints[i1], cvpoints[i2]);
-            std::string loc = seg.point_location(cvpoints[i3]);
-            while (i1 > 0 && (loc == "RIGHT" || loc == "ON_LINE")) {
-                
-                cvpoints[i2] = cvpoints[i2+1];
-                cvpoints.erase(cvpoints.end()-1);
-                
-                --i1;
-                --i2;
-                --i3;
 
-                seg.a = cvpoints[i1];
-                seg.b = cvpoints[i2];
-                loc = seg.point_location(cvpoints[i3]);
+        // make upper and lower lists
+        std::list<Point> lower_hull = _half_hull(points,
+                            [](Point const& p1, Point const& p2) { 
+                                    return p1.x < p2.x;} );
+        std::list<Point> upper_hull = _half_hull(points,
+                            [](Point const& p1, Point const& p2) { 
+                                    return p1.x > p2.x;} );
 
-            }
-            
-            // end condition of UpperHull(P): reached xmin
-            if (*(cvpoints.end()-1) == *(points.end()-1))
-                break;
-        }
+        // debug 
+        std::cout << "lower hull" << std::endl;
+        for (auto it = lower_hull.begin(); it != lower_hull.end(); ++it)
+            std::cout << *it << ",";
+        std::cout << std::endl;
+
+
+        // debug 
+        std::cout << "upper hull" << std::endl;
+        for (auto it = upper_hull.begin(); it != upper_hull.end(); ++it)
+            std::cout << *it << ",";
+        std::cout << std::endl;
         
-        // LowerHull(P)
-        cvpoints.push_back(points[points.size()-2]);
-        for (size_t i = n-3; i >= 0; --i) {
-            size_t i1 = i + 2;
-            size_t i2 = i + 1;
-            size_t i3 = i;
-            cvpoints.push_back(points[i3]);
+        // merge
+        for (auto it = lower_hull.begin(); 
+                it != lower_hull.end(); ++it)
+            cvpoly.vertices.push_back(*it);
             
-            Segment seg(cvpoints[i1], cvpoints[i2]);
-            std::string loc = seg.point_location(cvpoints[i3]);
-            while (i1 < n && (loc == "RIGHT" || loc == "ON_LINE")) {
-                
-                cvpoints[i2] = cvpoints[i2+1];
-                cvpoints.erase(cvpoints.end()-1);
-                
-                ++i1;
-                ++i2;
-                ++i3;
-
-                seg.a = cvpoints[i1];
-                seg.b = cvpoints[i2];
-                loc = seg.point_location(cvpoints[i3]);
-
-            }
-            
-            // end condition of LowerHull(P): reached xmin
-            if (*(cvpoints.end()-1) == *(points.begin()))
-                break;
-        }
+        for (auto it = std::next(upper_hull.begin(), 1); 
+                it != std::prev(upper_hull.end(), 1); ++it)
+            cvpoly.vertices.push_back(*it);
+        
+    } else {
+        for (auto it = points.begin(); it!= points.end(); ++it)
+            cvpoly.vertices.push_back(*it);
     }
     
     return std::move(cvpoly);

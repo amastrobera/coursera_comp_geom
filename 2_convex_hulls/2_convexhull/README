@@ -1,0 +1,32 @@
+2. Make the convex hull of a set of points 
+
+it is guaranteed that:
+- no 3 consecutive vertices are on the same line
+- each coordinate does not exceed abs val of 100,000
+
+
+outputs =  N(vertices)
+               +
+          X1 Y1 X2 Y2 ..... Xn Yn  (counter clockwise order)
+
+**requirements**
+language: C++ (11) 
+OS: ubuntu 18.04
+compiler: g++ v 7.4.0 (lower version is also fine)
+
+**compile with**
+```
+g++ -I. -std=c++11 main.cpp   # will output a.out
+```
+
+**launch with**
+```
+cat data1.txt | ./a.out
+cat data2.txt | ./a.out
+cat data3.txt | ./a.out
+```
+
+or with 
+```
+for f in $(ls data*.txt); do cat $f | ./a.out; done
+```

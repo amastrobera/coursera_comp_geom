@@ -124,7 +124,7 @@ struct Ray {
     // a (horizontal, left) ray passing by point a
     Point p;
     
-    bool intersects(Segment s) {
+    bool intersects(Segment const& s) {
 
         double ymax = (s.b.y >= s.a.y) ? s.b.y : s.a.y;
         double ymin = (s.b.y < s.a.y) ? s.b.y : s.a.y;

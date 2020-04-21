@@ -12,7 +12,7 @@ compiler: g++ v 7.4.0 (lower version is also fine)
 
 **compile with**
 ```
-g++ -I. main.cpp   # will output a.out
+g++ -I. -std=c++11 main.cpp   # will output a.out
 ```
 
 **launch with**

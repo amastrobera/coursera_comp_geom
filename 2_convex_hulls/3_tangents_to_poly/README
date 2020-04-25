@@ -1,0 +1,41 @@
+3. Create tangents to a convex polygon
+
+For each point in the list, make the two tangents
+
+it is guaranteed that:
+- each point is outside of the polygon
+- polygon n verices >= 3 and <= 1000, listed counter clockwise
+- m points >= 1 and <= 1000, their value does not exceed abs val of 1,000,000
+
+input = n (vertices)
+            +
+        X1 Y1 X2 Y2 .... Xn Yn
+            +
+        m (points)
+        X Y
+        X Y
+        ... m times
+
+outputs = X Y
+        for each m point given 
+        
+**requirements**
+language: C++ (11) 
+OS: ubuntu 18.04
+compiler: g++ v 7.4.0 (lower version is also fine)
+
+**compile with**
+```
+g++ -I. -std=c++11 main.cpp   # will output a.out
+```
+
+**launch with**
+```
+cat data1.txt | ./a.out
+cat data2.txt | ./a.out
+```
+
+or with 
+```
+for f in $(ls data*.txt); do cat $f | ./a.out; done
+```

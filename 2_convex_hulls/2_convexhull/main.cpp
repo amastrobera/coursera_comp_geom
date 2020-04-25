@@ -16,6 +16,7 @@ cat data.txt | ./a.out
 
 #include <cstdio> // exit
 #include <iostream>
+#include <sstream>
 
 
 int main() {

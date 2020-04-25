@@ -11,6 +11,7 @@
 #include <iostream> // error msg 
 #include <iterator> // next, prev
 #include <vector> // main container 
+#include <unordered_set>
 
 
 namespace crs {
@@ -120,6 +121,52 @@ Polygon convex_hull(std::vector<Point> points) {
     
     
     return std::move(cvpoly);
+}
+
+
+Polygon merge_cvx_poly(Polygon const& poly1, Polygon const& poly2) {
+    // takes 2 convex polygons and merges them into another convex polygon
+
+    // two ways of doing this:
+    //  a. find the tangents, remove inner points
+    //  b. transform all into points and make again convex hull (easier but slower ?)
+    
+    // TODO: (a)
+    
+    // temporary solution (b)
+    std::vector<Point> points;
+    std::unordered_set<Point, Point::hash> unique_points;
+    for (Point const& p : poly1.vertices) 
+        unique_points.insert(p);
+    for (Point const& p : poly2.vertices) 
+        unique_points.insert(p);
+    for (Point const& p : unique_points) 
+        points.push_back(p);
+    Polygon merged = convex_hull(points);
+    
+    
+    return std::move(merged);
+}
+
+
+Polygon merge_cvx_poly(std::vector<Polygon> const& polys) {
+    // takes 1+ convex polygons and merges them into another convex polygon
+    Polygon merged;
+    
+    size_t npoly = polys.size();
+    if (npoly) {
+        if (npoly > 1) {
+            Polygon semimerged = merge_cvx_poly(polys[0], polys[1]);
+            for (size_t i = 2; i < npoly; ++i) {
+                Polygon tmp = merge_cvx_poly(semimerged, polys[i]);
+                semimerged = std::move(tmp);
+            }
+            merged = std::move(semimerged);            
+        } else
+            merged = polys[0];
+    }
+    
+    return std::move(merged);
 }
 
 

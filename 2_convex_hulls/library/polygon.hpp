@@ -18,6 +18,17 @@ struct Polygon {
 
     std::vector<Point> vertices;
 
+    Polygon()  {} 
+    Polygon& operator=(Polygon const& cp) {
+        if (this != &cp) {
+            vertices = cp.vertices;
+        }
+        return *this;
+    }
+    Polygon(Polygon const& cp) {
+        *this = cp;
+    }
+
     std::string type() {
         if (is_convex())
             return "CONVEX";

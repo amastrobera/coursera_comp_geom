@@ -21,7 +21,6 @@ cat data.txt | ./a.out
 #include <utility> 
 
 
-
 namespace crs {
 
 // POINT
@@ -68,6 +67,7 @@ std::ostream& operator<<(std::ostream& os, Point p) {
     os << p.x << " " << p.y;
     return os;
 }
+
 
 
 // SEGMENT
@@ -260,11 +260,22 @@ std::ostream& operator<<(std::ostream& os, Ray r) {
     return os;
 }
 
-// POLYGON
 
+// POLYGON
 struct Polygon {
 
     std::vector<Point> vertices;
+
+    Polygon()  {} 
+    Polygon& operator=(Polygon const& cp) {
+        if (this != &cp) {
+            vertices = cp.vertices;
+        }
+        return *this;
+    }
+    Polygon(Polygon const& cp) {
+        *this = cp;
+    }
 
     std::string type() {
         if (is_convex())
@@ -475,7 +486,9 @@ std::ostream& operator<<(std::ostream& os, Polygon p) {
 }
 
 
-// ALGORITHMS
+
+// ALGORITHMS 
+
 
 #define _USE_MATH_DEFINES
 
@@ -585,6 +598,52 @@ Polygon convex_hull(std::vector<Point> points) {
 }
 
 
+Polygon merge_cvx_poly(Polygon const& poly1, Polygon const& poly2) {
+    // takes 2 convex polygons and merges them into another convex polygon
+
+    // two ways of doing this:
+    //  a. find the tangents, remove inner points
+    //  b. transform all into points and make again convex hull (easier but slower ?)
+    
+    // TODO: (a)
+    
+    // temporary solution (b)
+    std::vector<Point> points;
+    std::unordered_set<Point, Point::hash> unique_points;
+    for (Point const& p : poly1.vertices) 
+        unique_points.insert(p);
+    for (Point const& p : poly2.vertices) 
+        unique_points.insert(p);
+    for (Point const& p : unique_points) 
+        points.push_back(p);
+    Polygon merged = convex_hull(points);
+    
+    
+    return std::move(merged);
+}
+
+
+Polygon merge_cvx_poly(std::vector<Polygon> const& polys) {
+    // takes 1+ convex polygons and merges them into another convex polygon
+    Polygon merged;
+    
+    size_t npoly = polys.size();
+    if (npoly) {
+        if (npoly > 1) {
+            Polygon semimerged = merge_cvx_poly(polys[0], polys[1]);
+            for (size_t i = 2; i < npoly; ++i) {
+                Polygon tmp = merge_cvx_poly(semimerged, polys[i]);
+                semimerged = std::move(tmp);
+            }
+            merged = std::move(semimerged);            
+        } else
+            merged = polys[0];
+    }
+    
+    return std::move(merged);
+}
+
+
 } 
 
 
@@ -594,83 +653,92 @@ int main() {
 
     using namespace std;
 
-    // find how many vertices there are
-    int numverts;
-    string inputNumVerts;
-    getline(cin, inputNumVerts);
-    istringstream(inputNumVerts) >> numverts;
+    int numpoly;
+    string inputNumPolys;
+    getline(cin, inputNumPolys);
+    istringstream(inputNumPolys) >> numpoly;
 
-    if (!(numverts >= 3 && numverts <= 1000)) {
-        cerr << "bad input n vertices " 
-             << numverts << " not in [3, 1000]" << endl;
+    if (!(numpoly >= 2)) {
+        cerr << "bad input n polygons " 
+             << numpoly << " not in [2, inf[" << endl;
         exit(1);
     }
 
-    // get vertices  
-    string strPoly;
-    getline(cin, strPoly);
-    istringstream streamPoly(strPoly);
-
-    crs::Polygon poly;
-
-    while (numverts--) {
-
-        crs::Point point;
-        string strCoord;
-        
-        getline(streamPoly, strCoord, ' ');
-        istringstream(strCoord) >> point.x;
-        
-        getline(streamPoly, strCoord, ' ');
-        istringstream(strCoord) >> point.y;
-
-        poly.vertices.push_back(point);
-        
-    }
+    std::vector<crs::Polygon> polys;
     
-    if (!poly.is_convex()) {    
-        cerr << "bad input, not convex\n " << poly << endl;
-        exit(1);
-    }
-    
-    // find how many vertices there are
-    int numpoints;
-    string inputNumPoints;
-    getline(cin, inputNumPoints);
-    istringstream(inputNumPoints) >> numpoints;
-
-    if (!(numpoints >= 1 && numpoints <= 1000)) {
-        cerr << "bad input n points " 
-             << numpoints << " not in [1, 1000]" << endl;
-        exit(1);
-    }
-
-    while (numpoints--) {
-
-        crs::Point point;
-
-        string strLineCoords;
-        getline(cin, strLineCoords);
-        istringstream streamCoords(strLineCoords);
-        string strCoord;
-       
-        getline(streamCoords, strCoord, ' ');
-        istringstream(strCoord) >> point.x;
+    while (numpoly--) {
         
-        getline(streamCoords, strCoord, ' ');
-        istringstream(strCoord) >> point.y;
-        
-        if (poly.point_location(point) == "INSIDE") {
-            cerr << "invalid input (" << point << ") is inside the polygon" << endl;
-            continue;
+        int numverts;
+        string inputNumVerts;
+        getline(cin, inputNumVerts);
+        istringstream(inputNumVerts) >> numverts;
+
+        if (!(numverts >= 3 && numverts <= 10^5)) {
+            cerr << "bad input (" << numverts << ") n vertices " 
+                 << numverts << " not in [3, 100,000]" << endl;
+            exit(1);
+        }
+
+        // get vertices  
+        string strPoly;
+        getline(cin, strPoly);
+        istringstream streamPoly(strPoly);
+
+        crs::Polygon poly;
+
+        while (numverts--) {
+
+            crs::Point point;
+            string strCoord;
+            
+            getline(streamPoly, strCoord, ' ');
+            istringstream(strCoord) >> point.x;
+
+            if (!(point.x <= 10^6)) {
+                cerr << "bad input (" << numpoly << ") coordinate ("
+                     << numverts << ") x not <= 1,000,000" << endl;
+                exit(1);
+            }
+            
+            getline(streamPoly, strCoord, ' ');
+            istringstream(strCoord) >> point.y;
+
+            if (!(point.y <= 10^6)) {
+                cerr << "bad input (" << numpoly << ") coordinate ("
+                     << numverts << ") y not <= 1,000,000" << endl;
+                exit(1);
+            }
+
+            poly.vertices.push_back(point);
+            
         }
         
-        auto tangents = poly.tangent_points_to_point(point);
-
-        cout << tangents.first.x << " " << tangents.first.y << " "
-             << tangents.second.x << " " << tangents.second.y << endl;
- 
+        if (!poly.is_convex()) {
+            cerr << "bad input (" << numpoly 
+                 << ") not convex " << poly << endl;
+            exit(1);
+        }
+        
+        polys.push_back(poly);
     }
+
+    crs::Polygon mergepoly = crs::merge_cvx_poly(polys);
+    
+    if (!mergepoly.is_convex()) {    
+        cerr << "bad output, not convex\n " << mergepoly << endl;
+        exit(1);
+    }
+
+    size_t n = mergepoly.vertices.size();    
+    cout << n << endl;
+    for (size_t i = 0; i < n; ++i) {
+        cout << mergepoly.vertices[i].x << " " << mergepoly.vertices[i].y;
+        if (i < n -1)
+            cout << " ";
+        else
+            cout << endl;
+    }
+
   
     return 0;
 }

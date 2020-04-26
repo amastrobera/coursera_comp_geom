@@ -121,12 +121,12 @@ int main() {
     istringstream(inputnum) >> numdata;
 
 
-    if (!(numdata >= 1 && numdata <= 10^4)) {
+    if (!(numdata >= 1 && numdata <= 10000)) {
         cerr << "invalid input n(points) > 1000" << endl; 
         exit(1);
     }
 
-    double input_limit = 10^4;
+    double input_limit = 10000;
 
     // get points and evaluate each one
     while (numdata--) {

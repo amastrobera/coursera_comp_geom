@@ -243,7 +243,7 @@ int main() {
     crs::Polygon poly;
 
     bool input_error = false;
-    double input_limit = 10^6;
+    double input_limit = 1000000;
 
     while (numverts--) {
 

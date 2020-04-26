@@ -289,8 +289,7 @@ int main() {
 
     crs::Polygon poly;
 
-    bool input_error = false;
-    double input_limit = 10^4;
+    double input_limit = 10000;
 
     while (numverts--) {
 
@@ -304,18 +303,14 @@ int main() {
         istringstream(strCoord) >> vert.y;
         
         if (abs(vert.x) > input_limit || abs(vert.y) > input_limit) {
-            input_error = true;
-            break;
+            cerr << "bad input, invalid point exceeds limit " << input_limit << endl;
+            exit(1);
         }             
         
         poly.vertices.push_back(vert);
         
     }
     
-    if (input_error) {    
-        cerr << "bad input, invalid point exceeds limit " << input_limit << endl;
-        exit(1);
-    }
 
     if (!poly.is_valid()) {
         cerr << "bad input, invalid " << poly << endl;

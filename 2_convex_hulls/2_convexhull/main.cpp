@@ -387,7 +387,7 @@ int main() {
     std::vector<crs::Point> points;
 
     bool input_error = false;
-    double input_limit = 10^6;
+    double input_limit = 1000000;
 
     while (numverts--) {
 
@@ -401,31 +401,12 @@ int main() {
         istringstream(strCoord) >> point.y;
         
         if (abs(point.x) > input_limit || abs(point.y) > input_limit) {
-            input_error = true;
-            break;
-        }             
+            cerr << "bad input, invalid point exceeds limit " << input_limit << endl;
+            exit(1);
+        }
         
         points.push_back(point);
         
-    }
-    
-    // debug
-    /*
-    cout << "input" << endl;    
-     size_t m = points.size();
-    cout << m << endl;
-    for (size_t i = 0; i < m; ++i) {
-        cout << points[i].x << " " << points[i].y;
-        if (i < m -1)
-            cout << " ";
-        else
-            cout << endl;
-    }
-    */
-        
-    if (input_error) {    
-        cerr << "bad input, invalid point exceeds limit " << input_limit << endl;
-        exit(1);
     }
     
     crs::Polygon cvpoly = crs::convex_hull(points);

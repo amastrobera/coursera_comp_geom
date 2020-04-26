@@ -673,7 +673,7 @@ int main() {
         getline(cin, inputNumVerts);
         istringstream(inputNumVerts) >> numverts;
 
-        if (!(numverts >= 3 && numverts <= 10^5)) {
+        if (!(numverts >= 3 && numverts <= 100000)) {
             cerr << "bad input (" << numverts << ") n vertices " 
                  << numverts << " not in [3, 100,000]" << endl;
             exit(1);
@@ -686,6 +686,8 @@ int main() {
 
         crs::Polygon poly;
 
+        double input_limit = 1000000;
+
         while (numverts--) {
 
             crs::Point point;
@@ -694,23 +696,16 @@ int main() {
             getline(streamPoly, strCoord, ' ');
             istringstream(strCoord) >> point.x;
 
-            if (!(point.x <= 10^6)) {
-                cerr << "bad input (" << numpoly << ") coordinate ("
-                     << numverts << ") x not <= 1,000,000" << endl;
-                exit(1);
-            }
-            
             getline(streamPoly, strCoord, ' ');
             istringstream(strCoord) >> point.y;
 
-            if (!(point.y <= 10^6)) {
+            if (abs(point.x) > input_limit || abs(point.y) > input_limit) {
                 cerr << "bad input (" << numpoly << ") coordinate ("
-                     << numverts << ") y not <= 1,000,000" << endl;
+                     << numverts << ") point exceeds limit " << input_limit << endl;
                 exit(1);
             }
 
             poly.vertices.push_back(point);
-            
         }
         
         if (!poly.is_convex()) {

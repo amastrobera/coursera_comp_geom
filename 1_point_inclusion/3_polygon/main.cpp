@@ -430,7 +430,7 @@ int main() {
     }
     
     
-    double input_limit = 10^4;
+    double input_limit = 10000;
     
     while (numpoints--) {
 

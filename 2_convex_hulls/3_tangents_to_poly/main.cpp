@@ -14,7 +14,6 @@ cat data.txt | ./a.out
 #include <cmath> // atan, PI etc
 #include <cstdio> // exit
 #include <iostream> // error msg 
-#include <iterator> // next, prev
 #include <sstream>
 #include <vector> // main container 
 #include <unordered_set> // non cvx function
@@ -39,6 +38,10 @@ struct Point {
     }
     Point(Point const& cp) {
         *this = cp;
+    }
+    
+    double distance(Point const& p) const {
+        return std::sqrt(std::pow(p.x - x, 2) + std::pow(p.y - y, 2)); 
     }
     
     struct hash{
@@ -343,40 +346,68 @@ struct Polygon {
         if (n) {
             if (n > 1) {
                 if (n > 2) {
-                    Point first, second;
-                    // first point
-                    std::vector<Point>::const_iterator it1 = vertices.begin();
-                    for (; it1 != vertices.end(); ++it1) {
-                        auto it2 = (it1 != vertices.end()-1) ? it1+1 : vertices.begin(); // circular list
-                        std::string loc = Segment(*it1, p).point_location(*it2);
-                        if ( loc != "RIGHT") {
-                            first = *it1;
-                            break;
+                    
+                    // pick the nearest vertex to the point
+                    size_t imin = 0;
+                    double dmin = vertices[0].distance(p);
+                    for (size_t i = 1; i < n; ++i) {
+                        double d = vertices[0].distance(p);
+                        if (d < dmin) {
+                            dmin = d;
+                            imin = i;
                         }
                     }
-                    // second point 
-                    if (it1 != vertices.end()) {
-                        std::vector<Point>::const_iterator it2 = (it1 != vertices.end()-1) ? it1+1 : vertices.begin(); 
-                        for (; it2 != it1+n; ++it2) {
-                            auto it3 = (it2 != vertices.end()-1) ? it2+1 : vertices.begin(); // circular list
-                            std::string loc = Segment(p, *it2).point_location(*it3);
-                            if ( loc != "RIGHT") {
-                                second = *it2;
-                                break;
-                            }
-                        }
-                        if (it2 != it1+n) {
-                            tangents.first =  first;
-                            tangents.second = second;
-                        } else 
-                            std::cerr << "second tanget point not found. skipping calc" << std::endl;
-                    } else 
-                        std::cerr << "first tanget point not found. skipping calc" << std::endl;
+                                        
+                    // navigate to its left and right to see which vertex best
+                    // captures the tangent to the point 
+                    
+                    // right tangent (v[r],p) --> first
+                    size_t iright;
+                    for (size_t i = 0; i < n; ++i) {
+                        iright = (imin - i) % n; // circular index
+                        size_t i1 = (iright - 1) % n;
+                        if (Segment(vertices[i1], vertices[iright])
+                            .point_location(p) == "LEFT")
+                            break;
+                    }
+                    
+                    // left tangent (v[l], p) --> second
+                    size_t ileft;
+                    for (size_t i = 0; i < n; ++i) {
+                        ileft = (imin + i) % n; // circular index
+                        size_t i1 = (ileft + 1) % n;
+                        if (Segment(vertices[i1], vertices[ileft])
+                            .point_location(p) == "RIGHT")
+                            break;
+                    }
+                    
+                    tangents.first = vertices[iright];
+                    tangents.second = vertices[ileft];
+                    
 
-                } else 
+                } else {
+                    // try to create a counter clockwise order triangle
+                    //  from a segment ab and the point p
+                    std::string loc = Segment(vertices[0], vertices[1]).point_location(p);
+                    if (loc == "LEFT") {
+                        tangents = {vertices[1], vertices[0]};
+                    } else if (loc == "RIGHT" || loc == "ON_SEGMENT") {
+                        tangents = {vertices[0], vertices[1]};
+                    } else {
+                        if (p.distance(vertices[0]) < p.distance(vertices[1])) {
+                            tangents = {vertices[1], vertices[0]};
+                        } else {
+                            tangents = {vertices[0], vertices[1]};
+                        }
+                    }
                     tangents = {vertices[0], vertices[1]};
-            } else 
+                }
+                    
+            } else {
+                // create a segment from a point p and the only vertex 
                 tangents = {vertices[0], vertices[0]};
+            }
+                
         }
         
         return std::move(tangents);
@@ -537,42 +568,42 @@ Polygon convex_hull(std::vector<Point> points) {
                         return point_angle_2d(p1.x-z.x, p1.y-z.y) < 
                                point_angle_2d(p2.x-z.x, p2.y-z.y); 
                      });
+        // pick the lowest point
+        size_t i0 = 0;
+        double ymin = points[0].y;
+        for (size_t i = 1; i < n; ++i)
+            if (points[i].y < ymin) {
+                ymin = points[i].y;
+                i0 = i;
+            }
 
-
+        // initialize with the smallest point and the point after
         std::vector<Point> cvpoints;
-        cvpoints.push_back(*(points.end()-1));  // point with max angle
-        cvpoints.push_back(*(points.begin()));  // followed by point with min angle
+        cvpoints.push_back(points[i0 % n]);
+        cvpoints.push_back(points[(i0+1) % n]);
         
-        for (std::vector<Point>::const_iterator it = points.begin()+1;
-                it != points.end(); ++it) {
+        for (size_t i = 2; i < n + 1 ; ++i) {            
+            cvpoints.push_back(points[(i0+i) % n]);
             
-            cvpoints.push_back(*it);
+            size_t m = cvpoints.size();
+            size_t i3 = m-1;
+            size_t i2 = i3-1;
+            size_t i1 = i3-2;            
 
-            auto it3 = std::prev(cvpoints.end(), 1);
-            auto it2 = std::prev(it3, 1);
-            auto it1 = std::prev(it3, 2);
-            
-            Segment seg(*it1, *it2);
-            std::string loc = seg.point_location(*it3);
-            
-            while (it1 != std::prev(cvpoints.begin(), 1) && 
-                    (loc == "RIGHT" || loc == "ON_LINE")) {
-                
-                *it2 = *it3;
-                cvpoints.erase(std::next(it2, 1));
-                
-                --it1;
-                --it2;
-                --it3;
-
-                seg.a = *it1;
-                seg.b = *it2;
-                loc = seg.point_location(*it3);
+            while (i1 >= 0 && 
+                   Segment(cvpoints[i1], cvpoints[i2])
+                        .point_location(cvpoints[i3]) != "LEFT") {
+                cvpoints[i2] = cvpoints[i3];
+                cvpoints.pop_back();
+                --i1;
+                --i2;
+                --i3;
             }            
         }
-
-        if (*(cvpoints.end()-1) == *(cvpoints.begin()))
-            cvpoints.erase(cvpoints.end()-1);
+        
+        // end condition
+        if (*cvpoints.begin() == *(cvpoints.end()-1))
+            cvpoints.erase(cvpoints.end()-1);        
 
         cvpoly.vertices = std::move(cvpoints);
         
@@ -583,6 +614,7 @@ Polygon convex_hull(std::vector<Point> points) {
     
     return std::move(cvpoly);
 }
+
 
 
 } 

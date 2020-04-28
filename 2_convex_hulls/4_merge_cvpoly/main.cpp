@@ -17,7 +17,7 @@ cat data.txt | ./a.out
 #include <iterator> // next, prev
 #include <sstream>
 #include <vector> // main container 
-#include <unordered_set> // non cvx function
+#include <unordered_set>
 #include <utility> 
 
 
@@ -525,7 +525,6 @@ double point_angle_2d(double x, double y) {
 }
 
 
-
 Polygon convex_hull(std::vector<Point> points) {
     // Graham's scan
     Polygon cvpoly;
@@ -550,42 +549,42 @@ Polygon convex_hull(std::vector<Point> points) {
                         return point_angle_2d(p1.x-z.x, p1.y-z.y) < 
                                point_angle_2d(p2.x-z.x, p2.y-z.y); 
                      });
+        // pick the lowest point
+        size_t i0 = 0;
+        double ymin = points[0].y;
+        for (size_t i = 1; i < n; ++i)
+            if (points[i].y < ymin) {
+                ymin = points[i].y;
+                i0 = i;
+            }
 
-
+        // initialize with the smallest point and the point after
         std::vector<Point> cvpoints;
-        cvpoints.push_back(*(points.end()-1));  // point with max angle
-        cvpoints.push_back(*(points.begin()));  // followed by point with min angle
+        cvpoints.push_back(points[i0 % n]);
+        cvpoints.push_back(points[(i0+1) % n]);
         
-        for (std::vector<Point>::const_iterator it = points.begin()+1;
-                it != points.end(); ++it) {
+        for (size_t i = 2; i < n + 1 ; ++i) {            
+            cvpoints.push_back(points[(i0+i) % n]);
             
-            cvpoints.push_back(*it);
+            size_t m = cvpoints.size();
+            size_t i3 = m-1;
+            size_t i2 = i3-1;
+            size_t i1 = i3-2;            
 
-            auto it3 = std::prev(cvpoints.end(), 1);
-            auto it2 = std::prev(it3, 1);
-            auto it1 = std::prev(it3, 2);
-            
-            Segment seg(*it1, *it2);
-            std::string loc = seg.point_location(*it3);
-            
-            while (it1 != std::prev(cvpoints.begin(), 1) && 
-                    (loc == "RIGHT" || loc == "ON_LINE")) {
-                
-                *it2 = *it3;
-                cvpoints.erase(std::next(it2, 1));
-                
-                --it1;
-                --it2;
-                --it3;
-
-                seg.a = *it1;
-                seg.b = *it2;
-                loc = seg.point_location(*it3);
+            while (i1 >= 0 && 
+                   Segment(cvpoints[i1], cvpoints[i2])
+                        .point_location(cvpoints[i3]) != "LEFT") {
+                cvpoints[i2] = cvpoints[i3];
+                cvpoints.pop_back();
+                --i1;
+                --i2;
+                --i3;
             }            
         }
-
-        if (*(cvpoints.end()-1) == *(cvpoints.begin()))
-            cvpoints.erase(cvpoints.end()-1);
+        
+        // end condition
+        if (*cvpoints.begin() == *(cvpoints.end()-1))
+            cvpoints.erase(cvpoints.end()-1);        
 
         cvpoly.vertices = std::move(cvpoints);
         
@@ -598,26 +597,23 @@ Polygon convex_hull(std::vector<Point> points) {
 }
 
 
+
 Polygon merge_cvx_poly(Polygon const& poly1, Polygon const& poly2) {
     // takes 2 convex polygons and merges them into another convex polygon
 
     // two ways of doing this:
-    //  a. find the tangents, remove inner points
+    //  a. find the tangents, remove inner points (how ??? )
     //  b. transform all into points and make again convex hull (easier but slower ?)
     
-    // TODO: (a)
+    // TODO: can we try (a) ? 
     
-    // temporary solution (b)
+    // applied solution (b)
     std::vector<Point> points;
-    std::unordered_set<Point, Point::hash> unique_points;
     for (Point const& p : poly1.vertices) 
-        unique_points.insert(p);
+        points.push_back(p);
     for (Point const& p : poly2.vertices) 
-        unique_points.insert(p);
-    for (Point const& p : unique_points) 
         points.push_back(p);
     Polygon merged = convex_hull(points);
-    
     
     return std::move(merged);
 }

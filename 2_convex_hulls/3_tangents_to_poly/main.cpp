@@ -23,6 +23,44 @@ cat data.txt | ./a.out
 
 namespace crs {
 
+// SIMPLE ALGORITHMS
+
+#define _USE_MATH_DEFINES
+
+double point_angle_2d(double x, double y) {
+    /*
+        input:     x, y:
+        output:    angle (radians) of the line (make of two points)
+                        (the first point is the origin, and the second is the end of the radius)
+        example:
+                      *         |        * (q)
+               135o      .      |     .         45o
+                            .   |  .
+                   -------- (p) * ----------->
+               225o         .   |  .
+                         .      |     .       315o
+                      *         |       *
+    */
+    if (x == 0)
+        return (y > 0) ? M_PI/2 : ((y < 0) ? M_PI*3/2 : 0); 
+    else if (y == 0)
+        return (x < 0) ? M_PI : 0;
+
+    if (x > 0)
+        if (y > 0)
+            return std::atan(y/x);
+        else
+            return 2*M_PI - std::atan(-y/x);
+    else
+        if (y > 0)
+            return M_PI/2. + std::atan(-x/y);
+        else
+            return M_PI + std::atan(y/x);
+    return 0; 
+}
+
+
+
 // POINT
 struct Point {
     double x,y;
@@ -343,52 +381,56 @@ struct Polygon {
         std::pair<Point, Point> tangents;
         size_t n = vertices.size();
         
-        if (n) {
+        if (n) {    
+            
             if (n > 1) {
+                
                 if (n > 2) {
-                    
-                    // pick the nearest vertex to the point
+        
                     size_t imin = 0;
-                    double dmin = vertices[0].distance(p);
+                    size_t imax = 0;
+                    double angmin = point_angle_2d(vertices[0].x - p.x,
+                                                   vertices[0].y - p.y);
+                    double angmax = angmin;
+                
+//                    std::cout <<"init min: " << angmin  
+//                      << " on e(" << imin << ")" << std::endl;
+//                
+//                    std::cout <<"init max: " << angmax  
+//                      << " on e(" << imax << ")" << std::endl;
+                
                     for (size_t i = 1; i < n; ++i) {
-                        double d = vertices[0].distance(p);
-                        if (d < dmin) {
-                            dmin = d;
+                    
+                        double angle = point_angle_2d(vertices[i].x - p.x,
+                                                      vertices[i].y - p.y);
+                        if (angle < angmin) {
+//                            std::cout <<"chg min: " << angmin  
+//                                      << "on e(" << imin << ") --> " 
+//                                      << angle << " on e(" << i << ")" << std::endl;
+                            angmin = angle;
                             imin = i;
                         }
-                    }
-                                        
-                    // navigate to its left and right to see which vertex best
-                    // captures the tangent to the point 
+
+                        if (angle > angmax) {
+//                            std::cout <<"chg max: " << angmax  
+//                                      << "on e(" << imax << ") --> " 
+//                                      << angle << " on e(" << i << ")" << std::endl;
+                            angmax = angle;
+                            imax = i;
+                        }
                     
-                    // right tangent (v[r],p) --> first
-                    size_t iright;
-                    for (size_t i = 0; i < n; ++i) {
-                        iright = (imin - i) % n; // circular index
-                        size_t i1 = (iright - 1) % n;
-                        if (Segment(vertices[i1], vertices[iright])
-                            .point_location(p) == "LEFT")
-                            break;
                     }
                     
-                    // left tangent (v[l], p) --> second
-                    size_t ileft;
-                    for (size_t i = 0; i < n; ++i) {
-                        ileft = (imin + i) % n; // circular index
-                        size_t i1 = (ileft + 1) % n;
-                        if (Segment(vertices[i1], vertices[ileft])
-                            .point_location(p) == "RIGHT")
-                            break;
-                    }
-                    
-                    tangents.first = vertices[iright];
-                    tangents.second = vertices[ileft];
+                    tangents = {vertices[imax], vertices[imin]};
+        
+    
                     
 
                 } else {
                     // try to create a counter clockwise order triangle
                     //  from a segment ab and the point p
-                    std::string loc = Segment(vertices[0], vertices[1]).point_location(p);
+                    std::string loc = Segment(
+                                    vertices[0], vertices[1]).point_location(p);
                     if (loc == "LEFT") {
                         tangents = {vertices[1], vertices[0]};
                     } else if (loc == "RIGHT" || loc == "ON_SEGMENT") {
@@ -507,41 +549,6 @@ std::ostream& operator<<(std::ostream& os, Polygon p) {
 
 
 // ALGORITHMS
-
-#define _USE_MATH_DEFINES
-
-double point_angle_2d(double x, double y) {
-    /*
-        input:     x, y:
-        output:    angle (radians) of the line (make of two points)
-                        (the first point is the origin, and the second is the end of the radius)
-        example:
-                      *         |        * (q)
-               135o      .      |     .         45o
-                            .   |  .
-                   -------- (p) * ----------->
-               225o         .   |  .
-                         .      |     .       315o
-                      *         |       *
-    */
-    if (x == 0)
-        return (y > 0) ? M_PI/2 : ((y < 0) ? M_PI*3/2 : 0); 
-    else if (y == 0)
-        return (x < 0) ? M_PI : 0;
-
-    if (x > 0)
-        if (y > 0)
-            return std::atan(y/x);
-        else
-            return 2*M_PI - std::atan(-y/x);
-    else
-        if (y > 0)
-            return M_PI/2. + std::atan(-x/y);
-        else
-            return M_PI + std::atan(y/x);
-    return 0; 
-}
-
 
 
 Polygon convex_hull(std::vector<Point> points) {

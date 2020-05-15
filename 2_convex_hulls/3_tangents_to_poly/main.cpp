@@ -387,45 +387,53 @@ struct Polygon {
                 
                 if (n > 2) {
         
-                    size_t imin = 0;
-                    size_t imax = 0;
-                    double angmin = point_angle_2d(vertices[0].x - p.x,
-                                                   vertices[0].y - p.y);
-                    double angmax = angmin;
-                
-//                    std::cout <<"init min: " << angmin  
-//                      << " on e(" << imin << ")" << std::endl;
-//                
-//                    std::cout <<"init max: " << angmax  
-//                      << " on e(" << imax << ")" << std::endl;
-                
-                    for (size_t i = 1; i < n; ++i) {
-                    
-                        double angle = point_angle_2d(vertices[i].x - p.x,
-                                                      vertices[i].y - p.y);
-                        if (angle < angmin) {
-//                            std::cout <<"chg min: " << angmin  
-//                                      << "on e(" << imin << ") --> " 
-//                                      << angle << " on e(" << i << ")" << std::endl;
-                            angmin = angle;
-                            imin = i;
-                        }
-
-                        if (angle > angmax) {
-//                            std::cout <<"chg max: " << angmax  
-//                                      << "on e(" << imax << ") --> " 
-//                                      << angle << " on e(" << i << ")" << std::endl;
-                            angmax = angle;
-                            imax = i;
-                        }
-                    
-                    }
-                    
-                    tangents = {vertices[imax], vertices[imin]};
+     
+                    bool found = false;
         
-    
-                    
+                    for (size_t i = 0; i < n + 1; ++i) {
+                        
+                        size_t idx0 = (i - 1) % n;
+                        size_t idx1 = (i) % n;
+                        size_t idx2 = (i + 1) % n;
+                        
+                        if (Segment(vertices[idx1], p).point_location(vertices[idx0]) != "RIGHT" 
+                            && 
+                            Segment(vertices[idx1], p).point_location(vertices[idx2]) != "RIGHT") {
+                            // found first (right-most tangent v[i]-p)
+                            
+                            // find the farmost tangent : search for points on line                            
+                            size_t di = 1;
+                            while (Segment(vertices[(idx1 - di) % n], vertices[idx1])
+                                    .point_location(p) == "ON_LINE")
+                                ++di;
+                            
+                            tangents.first = vertices[(idx1 - di + 1) % n];
+                            
+                            for (size_t j = 1; j < n + 1; ++j) {
+                                idx0 = (i + j - 1) % n;
+                                idx1 = (i + j) % n;
+                                idx2 = (i + j + 1) % n;
 
+                                if (Segment(p, vertices[idx1]).point_location(vertices[idx0]) != "RIGHT" 
+                                    && 
+                                    Segment(p, vertices[idx1]).point_location(vertices[idx2]) == "LEFT") {
+                                    // found second (right-most tangent p-v[j])
+                                    
+                                    // find the farmost tangent : search for points on line                            
+                                    size_t di = 1;
+                                    while (Segment(p, vertices[idx1]).point_location(
+                                            vertices[(idx1 + di) % n]) == "ON_LINE")
+                                        ++di;
+                                    found = true;
+                                    tangents.second = vertices[(idx1 + di -1) % n];
+                                    break;
+                                }
+                            }
+                            if (found)
+                                break;
+                        }
+                    }
+ 
                 } else {
                     // try to create a counter clockwise order triangle
                     //  from a segment ab and the point p
@@ -451,6 +459,8 @@ struct Polygon {
             }
                 
         }
+        
+        // std::cout <<"   tangents = " << tangents.first << " " << tangents.second << std::endl;
         
         return std::move(tangents);
     }

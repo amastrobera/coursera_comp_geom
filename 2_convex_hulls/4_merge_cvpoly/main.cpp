@@ -40,6 +40,11 @@ struct Point {
         *this = cp;
     }
     
+    double distance(Point const& p) const {
+        return std::sqrt(std::pow(p.x - x, 2) + std::pow(p.y - y, 2)); 
+    }
+    
+    
     struct hash{
         size_t operator()(const Point &p) const {
             size_t h1 = std::hash<double>()(p.x);
@@ -351,44 +356,86 @@ struct Polygon {
         std::pair<Point, Point> tangents;
         size_t n = vertices.size();
         
-        if (n) {
+        if (n) {    
+            
             if (n > 1) {
+                
                 if (n > 2) {
-                    Point first, second;
-                    // first point
-                    std::vector<Point>::const_iterator it1 = vertices.begin();
-                    for (; it1 != vertices.end(); ++it1) {
-                        auto it2 = (it1 != vertices.end()-1) ? it1+1 : vertices.begin(); // circular list
-                        std::string loc = Segment(*it1, p).point_location(*it2);
-                        if ( loc != "RIGHT") {
-                            first = *it1;
-                            break;
+        
+     
+                    bool found = false;
+        
+                    for (size_t i = 0; i < n + 1; ++i) {
+                        
+                        size_t idx0 = (i - 1) % n;
+                        size_t idx1 = (i) % n;
+                        size_t idx2 = (i + 1) % n;
+                        
+                        if (Segment(vertices[idx1], p).point_location(vertices[idx0]) != "RIGHT" 
+                            && 
+                            Segment(vertices[idx1], p).point_location(vertices[idx2]) != "RIGHT") {
+                            // found first (right-most tangent v[i]-p)
+                            
+                            // find the farmost tangent : search for points on line                            
+                            size_t di = 1;
+                            while (Segment(vertices[(idx1 - di) % n], vertices[idx1])
+                                    .point_location(p) == "ON_LINE")
+                                ++di;
+                            
+                            tangents.first = vertices[(idx1 - di + 1) % n];
+                            
+                            for (size_t j = 1; j < n + 1; ++j) {
+                                idx0 = (i + j - 1) % n;
+                                idx1 = (i + j) % n;
+                                idx2 = (i + j + 1) % n;
+
+                                if (Segment(p, vertices[idx1]).point_location(vertices[idx0]) != "RIGHT" 
+                                    && 
+                                    Segment(p, vertices[idx1]).point_location(vertices[idx2]) == "LEFT") {
+                                    // found second (right-most tangent p-v[j])
+                                    
+                                    // find the farmost tangent : search for points on line                            
+                                    size_t di = 1;
+                                    while (Segment(p, vertices[idx1]).point_location(
+                                            vertices[(idx1 + di) % n]) == "ON_LINE")
+                                        ++di;
+                                    found = true;
+                                    tangents.second = vertices[(idx1 + di -1) % n];
+                                    break;
+                                }
+                            }
+                            if (found)
+                                break;
                         }
                     }
-                    // second point 
-                    if (it1 != vertices.end()) {
-                        std::vector<Point>::const_iterator it2 = (it1 != vertices.end()-1) ? it1+1 : vertices.begin(); 
-                        for (; it2 != it1+n; ++it2) {
-                            auto it3 = (it2 != vertices.end()-1) ? it2+1 : vertices.begin(); // circular list
-                            std::string loc = Segment(p, *it2).point_location(*it3);
-                            if ( loc != "RIGHT") {
-                                second = *it2;
-                                break;
-                            }
+ 
+                } else {
+                    // try to create a counter clockwise order triangle
+                    //  from a segment ab and the point p
+                    std::string loc = Segment(
+                                    vertices[0], vertices[1]).point_location(p);
+                    if (loc == "LEFT") {
+                        tangents = {vertices[1], vertices[0]};
+                    } else if (loc == "RIGHT" || loc == "ON_SEGMENT") {
+                        tangents = {vertices[0], vertices[1]};
+                    } else {
+                        if (p.distance(vertices[0]) < p.distance(vertices[1])) {
+                            tangents = {vertices[1], vertices[0]};
+                        } else {
+                            tangents = {vertices[0], vertices[1]};
                         }
-                        if (it2 != it1+n) {
-                            tangents.first =  first;
-                            tangents.second = second;
-                        } else 
-                            std::cerr << "second tanget point not found. skipping calc" << std::endl;
-                    } else 
-                        std::cerr << "first tanget point not found. skipping calc" << std::endl;
-
-                } else 
+                    }
                     tangents = {vertices[0], vertices[1]};
-            } else 
+                }
+                    
+            } else {
+                // create a segment from a point p and the only vertex 
                 tangents = {vertices[0], vertices[0]};
+            }
+                
         }
+        
+        // std::cout <<"   tangents = " << tangents.first << " " << tangents.second << std::endl;
         
         return std::move(tangents);
     }

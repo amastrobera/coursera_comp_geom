@@ -1,0 +1,6 @@
+0 0 5 5
+0 6 6 0
+
+
+answer
+The intersection point is (3, 3).

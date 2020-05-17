@@ -45,7 +45,7 @@ struct Point {
     }
     
     
-    struct hash{
+    struct hash {
         size_t operator()(const Point &p) const {
             size_t h1 = std::hash<double>()(p.x);
             size_t h2 = std::hash<double>()(p.y);
@@ -98,7 +98,7 @@ struct Segment {
     Point p1, p2;
     
     Segment() {}
-    Segment(Point const& a, Point const& b) : p1(a), p2(b) {}
+    Segment(Point const& cp1, Point const& cp2) : p1(cp1), p2(cp2) {}
     Segment& operator=(Segment const& cp) {
         if (this != &cp) {
             p1 = cp.p1;
@@ -111,9 +111,9 @@ struct Segment {
     }
 
 
-    std::string point_location(Point p) const {
+    std::string point_location(Point c) const {
         
-        double d = det(p1, p2, p);
+        double d = det(p1, p2, c);
         
         if (d > 0)
             return "LEFT";
@@ -121,8 +121,8 @@ struct Segment {
             return "RIGHT";
         
         // determinant is zero. check if the point is on the line of on segment
-        //      according to the location of AB (p1->p2)
-        // I want to simply check xmin <= p.x <= xmax AND ymin <= p.y <= ymax
+        //      according to the location of AB
+        // I want to simply check xmin <= c.x <= xmax AND ymin <= c.y <= ymax
         //      so I determine the min/max for AB, then apply the check
         double xmin, xmax;
         if (p2.x >= p1.x) {
@@ -133,7 +133,7 @@ struct Segment {
             xmax = p1.x;
         }
         double ymin, ymax;
-        if (p2.y>= p1.y) {
+        if (p2.y >= p1.y) {
             ymin = p1.y;
             ymax = p2.y;
         } else {
@@ -141,33 +141,36 @@ struct Segment {
             ymax = p1.y;
         }
         
-        if (p.x >= xmin && p.x <= xmax && 
-            p.y >= ymin && p.y <= ymax)
+        if (c.x >= xmin && c.x <= xmax && 
+            c.y >= ymin && c.y <= ymax)
             return "ON_SEGMENT";
         return "ON_LINE";
     }
-    
-    double length() {
-        return std::sqrt(std::pow(p2.x-p1.x, 2) + std::pow(p2.y-p1.y, 2));
-    }
-    
-    
-    std::string intersect(Segment const& seg2) {
+
+
+    std::string intersect(Segment const& seg2) const {
         
         // step 1: make system of 2 (implicit) equations + 2 unknowns
         //      implicit a*x + b*y = c, for each segment
         //           a = y1 - y2 (1 = first point, 2 = second point)
         //           b = x2 - x1
         //           c = y1*x2 - x1*y2
+
+        // debug only
+        // std::cout << "s1:" << p1 << " -> " << p2
+                  // << ", s2: " << seg2.p1 << " -> " << seg2.p2 << "; ";
+
         double a1 = p1.y - p2.y;
         double b1 = p2.x - p1.x;
-        double c1 = p1.y*p2.x - p1.x*p2.y;
+        double c1 = p1.y * p2.x - p1.x * p2.y;
 
         double a2 = seg2.p1.y - seg2.p2.y;
         double b2 = seg2.p2.x - seg2.p1.x;
-        double c2 = seg2.p1.y*seg2.p2.x - seg2.p1.x*seg2.p2.y;
+        double c2 = seg2.p1.y * seg2.p2.x - seg2.p1.x * seg2.p2.y;
 
         // step 2: check for parallelism
+        //       d = | a1  b1 |
+        //           | a2  b2 |
          
         double d = a1*b2 - a2*b1;
         if (d == 0) {
@@ -185,10 +188,14 @@ struct Segment {
             
             // step 3: find the intersection of the lines
             //         Cramer law, here 
+            //       x = | c1  b1 | / d    y = | a1  c1 | / d
+            //           | c2  b2 |            | a2  c2 |
+
             double xi = (c1*b2 - c2*b1) / d;
             double yi = (a1*c2 - a2*c1) / d;
             Point inter(xi, yi);
-            std::cout << "xi= " << inter.x << " yi=" << inter.y << "  ";
+            // debug only
+            // std::cout << "xi= " << inter.x << " yi=" << inter.y << "  ";
             
             // step 3.1: check that the intersection is inside the domain
             if (     point_location(inter) == "ON_SEGMENT" && 
@@ -206,9 +213,14 @@ struct Segment {
         return "";
     }
 
+
+    double length() const {
+        return std::sqrt(std::pow(p2.x-p1.x, 2) + std::pow(p2.y-p1.y, 2));
+    }
+
 private:
     double det(Point a, Point b, Point c) const {
-        return (p2.x - p1.x)*(c.y- p1.y) - (c.x - p1.x)*(p2.y- p1.y);
+        return (p2.x - p1.x)*(c.y- p1.y) - (c.x - p1.x)*(p2.y - p1.y);
     }
     
     Range domain() {
@@ -227,7 +239,7 @@ bool operator==(Segment const& s1, Segment const& s2) {
     //  note: I am not considering that (a,b) == (b,a) 
     //        equal size but different direction
     return s1.p1.x == s2.p1.x && s1.p1.y == s2.p1.y &&  
-           s1.p2.x == s2.p2.x && s1.p2.y== s2.p2.y;
+           s1.p2.x == s2.p2.x && s1.p2.y == s2.p2.y;
 }
 
 bool operator!=(Segment const& s1, Segment const& s2) {
@@ -252,8 +264,8 @@ struct Ray {
     
     bool intersects(Segment const& s) {
 
-        double ymax = (s.p2.y>= s.p1.y) ? s.p2.y: s.p1.y;
-        double ymin = (s.p2.y< s.p1.y) ? s.p2.y: s.p1.y;
+        double ymax = (s.p2.y >= s.p1.y) ? s.p2.y : s.p1.y;
+        double ymin = (s.p2.y < s.p1.y) ? s.p2.y : s.p1.y;
         
         if (p.y >= ymin && p.y <= ymax) {
 
@@ -296,8 +308,8 @@ struct Ray {
         // return 1 or 2 intersecting points of the segment with the Ray
         std::vector<Point> int_points;
 
-        double ymax = (s.p2.y>= s.p1.y) ? s.p2.y: s.p1.y;
-        double ymin = (s.p2.y< s.p1.y) ? s.p2.y: s.p1.y;
+        double ymax = (s.p2.y >= s.p1.y) ? s.p2.y : s.p1.y;
+        double ymin = (s.p2.y < s.p1.y) ? s.p2.y : s.p1.y;
         
         if (p.y >= ymin && p.y <= ymax) {
 
@@ -327,7 +339,7 @@ struct Ray {
                     std::string location = scmp.point_location(p);
                     
                     if (location == "RIGHT" || location == "ON_SEGMENT" ) {
-                        double m = (scmp.p2.y- scmp.p1.y) / (scmp.p2.x - scmp.p1.x);
+                        double m = (scmp.p2.y - scmp.p1.y) / (scmp.p2.x - scmp.p1.x);
                         double x = scmp.p1.x + (p.y - scmp.p1.y) / m;
                         int_points.push_back(Point(x, p.y));
                     }
@@ -363,7 +375,7 @@ struct Polygon {
         *this = cp;
     }
 
-    std::string type() {
+    std::string type() const {
         if (is_convex())
             return "CONVEX";
         return "NOT_CONVEX";
@@ -387,7 +399,7 @@ struct Polygon {
         return is_ccw;
     }
 
-    bool is_valid() {
+    bool is_valid() const {
         // checks that the polygon has at least 3 edges
         //      and those are in counter-clockwise
         //      and no 3 consecutive vertices are collinear
@@ -614,7 +626,6 @@ std::ostream& operator<<(std::ostream& os, Polygon p) {
 }
 
 
-
 // ALGORITHMS 
 
 
@@ -773,6 +784,7 @@ Polygon merge_cvx_poly(std::vector<Polygon> const& polys) {
 
 
 
+
 int main() {
 
     using namespace std;
@@ -812,7 +824,7 @@ int main() {
     string strCoord2;
     
     getline(segStream2, strCoord2, ' ');
-    istringstream(strCoord1) >> s2.p1.x;
+    istringstream(strCoord2) >> s2.p1.x;
     getline(segStream2, strCoord2, ' ');
     istringstream(strCoord2) >> s2.p1.y;
     getline(segStream2, strCoord2, ' ');

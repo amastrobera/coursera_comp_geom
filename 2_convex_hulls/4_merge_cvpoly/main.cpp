@@ -40,6 +40,11 @@ struct Point {
         *this = cp;
     }
     
+    Point (Point && mv) {
+        x = mv.x;
+        y = mv.y;
+    }
+    
     double distance(Point const& p) const {
         return std::sqrt(std::pow(p.x - x, 2) + std::pow(p.y - y, 2)); 
     }
@@ -280,6 +285,17 @@ struct Polygon {
     }
     Polygon(Polygon const& cp) {
         *this = cp;
+    }
+    
+    Polygon (Polygon && mv) {
+        std::cout << "... polygon.move ("
+                 << vertices.size() << ") --> ("
+                 << mv.vertices.size() << ")"             
+                 << std::endl;
+        vertices = std::move(mv.vertices);
+        std::cout << "... polygon.vertices (" 
+                 << vertices.size() << ")" 
+                 << std::endl;
     }
 
     std::string type() {
@@ -576,7 +592,8 @@ Polygon convex_hull(std::vector<Point> points) {
     // Graham's scan
     Polygon cvpoly;
     
-    size_t n = points.size();    
+    size_t n = points.size();
+
     if (n > 2) {
 
         // create z = mid point 2d
@@ -589,7 +606,7 @@ Polygon convex_hull(std::vector<Point> points) {
         xavg /= n;
         yavg /= n;
         Point z(xavg, yavg);
-    
+
         // sort ASC by angle against z
         std::sort(points.begin(), points.end(), 
                     [z](Point const& p1, Point const& p2) {
@@ -631,15 +648,14 @@ Polygon convex_hull(std::vector<Point> points) {
         
         // end condition
         if (*cvpoints.begin() == *(cvpoints.end()-1))
-            cvpoints.erase(cvpoints.end()-1);        
+            cvpoints.erase(cvpoints.end()-1);
 
         cvpoly.vertices = std::move(cvpoints);
         
     } else
         for (auto it = points.begin(); it!= points.end(); ++it)
             cvpoly.vertices.push_back(*it);
-    
-    
+
     return std::move(cvpoly);
 }
 
@@ -669,20 +685,33 @@ Polygon merge_cvx_poly(Polygon const& poly1, Polygon const& poly2) {
 Polygon merge_cvx_poly(std::vector<Polygon> const& polys) {
     // takes 1+ convex polygons and merges them into another convex polygon
     Polygon merged;
-    
     size_t npoly = polys.size();
+    std::cout << "... " << npoly << " polygons to merge" << std::endl;
     if (npoly) {
         if (npoly > 1) {
-            Polygon semimerged = merge_cvx_poly(polys[0], polys[1]);
-            for (size_t i = 2; i < npoly; ++i) {
-                Polygon tmp = merge_cvx_poly(semimerged, polys[i]);
-                semimerged = std::move(tmp);
+            
+            std::vector<Point> points;
+            for (Polygon const& poly : polys) {
+                for (Point const& p : poly.vertices) {
+                    points.push_back(p);
+                }
             }
-            merged = std::move(semimerged);            
+            std::cout << "... " 
+                      << points.size() 
+                      << " points" << std::endl;
+            merged = convex_hull(points);
+            std::cout << "... got merged (" 
+                      << merged.vertices.size() 
+                      << ")" << std::endl;
         } else
-            merged = polys[0];
+            for (Point const& p : polys[0].vertices)
+                merged.vertices.push_back(p);
     }
-    
+
+    std::cout << "... move merged (" 
+          << merged.vertices.size() 
+          << ")" << std::endl;
+
     return std::move(merged);
 }
 
@@ -762,10 +791,12 @@ int main() {
 
     crs::Polygon mergepoly = crs::merge_cvx_poly(polys);
     
+    std::cout << "... mergepoly.is_convex()" << std::endl;
     if (!mergepoly.is_convex()) {    
         cerr << "bad output, not convex\n " << mergepoly << endl;
         exit(1);
     }
+    std::cout << "... done" << std::endl;
 
     size_t n = mergepoly.vertices.size();    
     cout << n << endl;

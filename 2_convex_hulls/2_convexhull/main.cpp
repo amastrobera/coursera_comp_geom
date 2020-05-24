@@ -495,14 +495,23 @@ Polygon convex_hull(std::vector<Point> points) {
 
     if (n > 2) {
 
-        // sort ASC by angle against O(0,0)
-        //      precision to 6th decimal 
+        // sort ASC by angle against Z mean point
+        //      precision to 9th decimal 
         //      (sort ints, not doubles)
+        double xavg = 0, yavg = 0;
+        for (Point const& p: points) {
+            xavg += p.x;
+            yavg += p.y;
+        }
+        xavg /= n;
+        yavg /= n;
+        
         std::sort(points.begin(), points.end(), 
-                    [](Point const& p1, Point const& p2) {
-                        return (int)1000000*point_angle_2d(p1.x, p1.y) < 
-                               (int)1000000*point_angle_2d(p2.x, p2.y); 
+                    [xavg, yavg](Point const& p1, Point const& p2) {
+                        return (int)1000000000*point_angle_2d(p1.x - xavg, p1.y - yavg) < 
+                               (int)1000000000*point_angle_2d(p2.x - xavg, p2.y - yavg); 
                      });
+
 
         // pick the lowest point
         size_t i0 = 0;

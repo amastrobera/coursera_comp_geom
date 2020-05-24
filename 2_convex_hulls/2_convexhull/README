@@ -28,5 +28,5 @@ cat data3.txt | ./a.out
 
 or with 
 ```
-for f in $(ls data*.txt); do cat $f | ./a.out; done
+$ for f in $(ls data*.txt); do echo $f; cat $f | ./a.out; done
 ```

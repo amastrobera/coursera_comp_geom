@@ -25,10 +25,10 @@ namespace crs {
 
 // POINT
 struct Point {
-    double x,y;
+    int x,y;
     
     Point() : x(0), y(0) {} 
-    Point(double c1, double c2) : x(c1), y(c2) { }
+    Point(int c1, int c2) : x(c1), y(c2) { }
     Point& operator=(Point const& cp) {
         if (this != &cp) {
             x = cp.x;
@@ -49,8 +49,8 @@ struct Point {
     
     struct hash{
         size_t operator()(const Point &p) const {
-            size_t h1 = std::hash<double>()(p.x);
-            size_t h2 = std::hash<double>()(p.y);
+            size_t h1 = std::hash<int>()(p.x);
+            size_t h2 = std::hash<int>()(p.y);
             return h1 ^ (h2 << 1);
         }
     };
@@ -166,21 +166,20 @@ std::ostream& operator<<(std::ostream& os, Segment s) {
 
 
 // RAY
-
 struct Ray {
     // a (horizontal, left) ray passing by point p
     Point p;
     
     bool intersects(Segment const& s) const {
 
-        double ymax = (s.b.y >= s.a.y) ? s.b.y : s.a.y;
-        double ymin = (s.b.y < s.a.y) ? s.b.y : s.a.y;
+        int ymax = (s.b.y >= s.a.y) ? s.b.y : s.a.y;
+        int ymin = (s.b.y < s.a.y) ? s.b.y : s.a.y;
         
         if (p.y >= ymin && p.y <= ymax) {
 
             // horizontal segment
             if (s.a.y == s.b.y) {
-                double xmin = (s.a.x < s.b.x) ? s.a.x : s.b.x;
+                int xmin = (s.a.x < s.b.x) ? s.a.x : s.b.x;
                 if (p.x >= xmin)
                     return true;
                 return false;
@@ -217,14 +216,14 @@ struct Ray {
         // return 1 or 2 intersecting points of the segment with the Ray
         std::vector<Point> int_points;
 
-        double ymax = (s.b.y >= s.a.y) ? s.b.y : s.a.y;
-        double ymin = (s.b.y < s.a.y) ? s.b.y : s.a.y;
+        int ymax = (s.b.y >= s.a.y) ? s.b.y : s.a.y;
+        int ymin = (s.b.y < s.a.y) ? s.b.y : s.a.y;
         
         if (p.y >= ymin && p.y <= ymax) {
 
             // horizontal segment
             if (s.a.y == s.b.y) {
-                double xmin = (s.a.x < s.b.x) ? s.a.x : s.b.x;
+                int xmin = (s.a.x < s.b.x) ? s.a.x : s.b.x;
                 if (p.x >= s.a.x)
                     int_points.push_back(s.a);
                 if (p.x >= s.b.x)
@@ -250,7 +249,8 @@ struct Ray {
                     if (location == "RIGHT" || location == "ON_SEGMENT" ) {
                         double m = (scmp.b.y - scmp.a.y) / (scmp.b.x - scmp.a.x);
                         double x = scmp.a.x + (p.y - scmp.a.y) / m;
-                        int_points.push_back(Point(x, p.y));
+                        int_points.push_back(Point(x, p.y)); // will be casted into int
+                        // it's so ugly to use "ints" instead of doubles for x,y
                     }
                 }
             
@@ -266,6 +266,7 @@ std::ostream& operator<<(std::ostream& os, Ray r) {
     os << "ray (" << r.p << ")";
     return os;
 }
+
 
 
 // POLYGON
@@ -353,6 +354,7 @@ struct Polygon {
         return point_location_not_cvx(p); // used in any case
     }
     
+
     std::pair<Point, Point> tangent_points_to_point(Point const& p) {
         // pick up two tangents in linear time
         //   tangets are points t1, t2 such that 
@@ -444,6 +446,7 @@ struct Polygon {
         
         return std::move(tangents);
     }
+
 
 private:
 
@@ -585,18 +588,26 @@ Polygon convex_hull(std::vector<Point> points) {
 
     if (n > 2) {
 
-        // sort ASC by angle against O(0,0)
-        //      precision to 6th decimal 
+        // sort ASC by angle against Z mean point
+        //      precision to 9th decimal 
         //      (sort ints, not doubles)
+        double xavg = 0, yavg = 0;
+        for (Point const& p: points) {
+            xavg += p.x;
+            yavg += p.y;
+        }
+        xavg /= n;
+        yavg /= n;
+        
         std::sort(points.begin(), points.end(), 
-                    [](Point const& p1, Point const& p2) {
-                        return (int)1000000*point_angle_2d(p1.x, p1.y) < 
-                               (int)1000000*point_angle_2d(p2.x, p2.y); 
+                    [xavg, yavg](Point const& p1, Point const& p2) {
+                        return (int)1000000000*point_angle_2d(p1.x - xavg, p1.y - yavg) < 
+                               (int)1000000000*point_angle_2d(p2.x - xavg, p2.y - yavg); 
                      });
 
         // pick the lowest point
         size_t i0 = 0;
-        double ymin = points[0].y;
+        int ymin = points[0].y;
         for (size_t i = 1; i < n; ++i)
             if (points[i].y < ymin) {
                 ymin = points[i].y;
@@ -617,11 +628,19 @@ Polygon convex_hull(std::vector<Point> points) {
             int i3 = m - 1;
             int i2 = i3 - 1;
             int i1 = i3 - 2;            
+            
+            // std::cout << "cvpoints(" << i << "/" << n << ") = [" 
+                      // << cvpoints[i1] << ", " 
+                      // << cvpoints[i2] << ", " 
+                      // << cvpoints[i3] << "]"
+                      // << std::endl;
 
             while (i1 >= 0 && 
                    Segment(cvpoints[i1], cvpoints[i2])
                         .point_location(cvpoints[i3]) != "LEFT") {
 
+                // std::cout << "... pop(" << i2 << ") = " << cvpoints[i2] << std::endl;
+                
                 cvpoints[i2] = cvpoints[i3];
                 cvpoints.pop_back();
                 --i1;
@@ -643,7 +662,6 @@ Polygon convex_hull(std::vector<Point> points) {
 
     return std::move(cvpoly);
 }
-
 
 
 Polygon merge_cvx_poly(Polygon const& poly1, Polygon const& poly2) {
@@ -732,7 +750,7 @@ int main() {
 
         crs::Polygon poly;
 
-        double input_limit = 1000000;
+        int input_limit = 1000000;
 
         while (numverts--) {
 
@@ -773,8 +791,7 @@ int main() {
     size_t n = mergepoly.vertices.size();    
     cout << n << endl;
     for (size_t i = 0; i < n; ++i) {
-        cout << (int)mergepoly.vertices[i].x << " " 
-             << (int)mergepoly.vertices[i].y;
+        cout << mergepoly.vertices[i].x << " " << mergepoly.vertices[i].y;
         if (i < n -1)
             cout << " ";
         else

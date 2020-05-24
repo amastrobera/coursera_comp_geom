@@ -25,10 +25,10 @@ namespace crs {
 
 // POINT
 struct Point {
-    double x,y;
+    int x,y;
     
     Point() : x(0), y(0) {} 
-    Point(double c1, double c2) : x(c1), y(c2) { }
+    Point(int c1, int c2) : x(c1), y(c2) { }
     Point& operator=(Point const& cp) {
         if (this != &cp) {
             x = cp.x;
@@ -39,16 +39,18 @@ struct Point {
     Point(Point const& cp) {
         *this = cp;
     }
+    ~Point() = default;
+    Point(Point && mv) = default;
     
     double distance(Point const& p) const {
         return std::sqrt(std::pow(p.x - x, 2) + std::pow(p.y - y, 2)); 
     }
     
     
-    struct hash {
+    struct hash{
         size_t operator()(const Point &p) const {
-            size_t h1 = std::hash<double>()(p.x);
-            size_t h2 = std::hash<double>()(p.y);
+            size_t h1 = std::hash<int>()(p.x);
+            size_t h2 = std::hash<int>()(p.y);
             return h1 ^ (h2 << 1);
         }
     };
@@ -73,22 +75,18 @@ std::ostream& operator<<(std::ostream& os, Point p) {
     return os;
 }
 
-// DOMAIN 2D
 
+// RANGE
 struct Range {
-  // represents the range (x1 -> x2), (y1 -> y2) in ASC order
-  //            can be used to express the domain in 2D
-  double xmin, xmax, ymin, ymax;
-    
+    int xmin, xmax, ymin, ymax;
 };
+
 std::ostream& operator<<(std::ostream& os, Range rng) {
-    os << "Range (" 
-               << rng.xmin << " " << rng.xmax 
-               << ","
-               << rng.ymin << " " << rng.ymax 
-               << ")";
+    os << "[" << rng.xmin << ", " << rng.xmax << "] x "
+       << "[" << rng.ymin << ", " << rng.ymax << "]";
     return os;
 }
+
 
 
 // SEGMENT
@@ -111,7 +109,7 @@ struct Segment {
     }
 
 
-    std::string point_location(Point c) const {
+    std::string point_location(Point const& c) const {
         
         double d = det(p1, p2, c);
         
@@ -146,8 +144,12 @@ struct Segment {
             return "ON_SEGMENT";
         return "ON_LINE";
     }
-
-
+    
+    double length() const {
+        return std::sqrt(std::pow(p2.x - p1.x, 2) + std::pow(p2.y - p1.y, 2));
+    }
+    
+    
     std::string intersect(Segment const& seg2) const {
         
         // step 1: make system of 2 (implicit) equations + 2 unknowns
@@ -212,17 +214,13 @@ struct Segment {
         
         return "";
     }
-
-
-    double length() const {
-        return std::sqrt(std::pow(p2.x-p1.x, 2) + std::pow(p2.y-p1.y, 2));
-    }
+    
 
 private:
-    double det(Point a, Point b, Point c) const {
-        return (p2.x - p1.x)*(c.y- p1.y) - (c.x - p1.x)*(p2.y - p1.y);
+    double det(Point const& a, Point const& b, Point const& c) const {
+        return (b.x - a.x)*(c.y- a.y) - (c.x - a.x)*(b.y - a.y);
     }
-    
+
     Range domain() {
         // returns the domain of the segment
         Range r;
@@ -232,6 +230,7 @@ private:
         r.ymax = (p2.y < p1.y) ? p1.y: p2.y;
         return std::move(r);
     }
+
 };
 
 bool operator==(Segment const& s1, Segment const& s2) {
@@ -257,21 +256,20 @@ std::ostream& operator<<(std::ostream& os, Segment s) {
 
 
 // RAY
-
 struct Ray {
     // a (horizontal, left) ray passing by point p
     Point p;
     
-    bool intersects(Segment const& s) {
+    bool intersects(Segment const& s) const {
 
-        double ymax = (s.p2.y >= s.p1.y) ? s.p2.y : s.p1.y;
-        double ymin = (s.p2.y < s.p1.y) ? s.p2.y : s.p1.y;
+        int ymax = (s.p2.y >= s.p1.y) ? s.p2.y : s.p1.y;
+        int ymin = (s.p2.y < s.p1.y) ? s.p2.y : s.p1.y;
         
         if (p.y >= ymin && p.y <= ymax) {
 
             // horizontal segment
             if (s.p1.y == s.p2.y) {
-                double xmin = (s.p1.x < s.p2.x) ? s.p1.x : s.p2.x;
+                int xmin = (s.p1.x < s.p2.x) ? s.p1.x : s.p2.x;
                 if (p.x >= xmin)
                     return true;
                 return false;
@@ -308,14 +306,14 @@ struct Ray {
         // return 1 or 2 intersecting points of the segment with the Ray
         std::vector<Point> int_points;
 
-        double ymax = (s.p2.y >= s.p1.y) ? s.p2.y : s.p1.y;
-        double ymin = (s.p2.y < s.p1.y) ? s.p2.y : s.p1.y;
+        int ymax = (s.p2.y >= s.p1.y) ? s.p2.y : s.p1.y;
+        int ymin = (s.p2.y < s.p1.y) ? s.p2.y : s.p1.y;
         
         if (p.y >= ymin && p.y <= ymax) {
 
             // horizontal segment
             if (s.p1.y == s.p2.y) {
-                double xmin = (s.p1.x < s.p2.x) ? s.p1.x : s.p2.x;
+                int xmin = (s.p1.x < s.p2.x) ? s.p1.x : s.p2.x;
                 if (p.x >= s.p1.x)
                     int_points.push_back(s.p1);
                 if (p.x >= s.p2.x)
@@ -341,7 +339,8 @@ struct Ray {
                     if (location == "RIGHT" || location == "ON_SEGMENT" ) {
                         double m = (scmp.p2.y - scmp.p1.y) / (scmp.p2.x - scmp.p1.x);
                         double x = scmp.p1.x + (p.y - scmp.p1.y) / m;
-                        int_points.push_back(Point(x, p.y));
+                        int_points.push_back(Point(x, p.y)); // will be casted into int
+                        // it's so ugly to use "ints" instead of doubles for x,y
                     }
                 }
             
@@ -359,12 +358,14 @@ std::ostream& operator<<(std::ostream& os, Ray r) {
 }
 
 
+
 // POLYGON
 struct Polygon {
 
     std::vector<Point> vertices;
 
-    Polygon()  {} 
+    Polygon() = default;
+    ~Polygon() = default;
     Polygon& operator=(Polygon const& cp) {
         if (this != &cp) {
             vertices = cp.vertices;
@@ -374,8 +375,10 @@ struct Polygon {
     Polygon(Polygon const& cp) {
         *this = cp;
     }
+    
+    Polygon (Polygon && mv) = default;
 
-    std::string type() const {
+    std::string type() {
         if (is_convex())
             return "CONVEX";
         return "NOT_CONVEX";
@@ -441,6 +444,7 @@ struct Polygon {
         return point_location_not_cvx(p); // used in any case
     }
     
+
     std::pair<Point, Point> tangent_points_to_point(Point const& p) {
         // pick up two tangents in linear time
         //   tangets are points t1, t2 such that 
@@ -532,16 +536,16 @@ struct Polygon {
         
         return std::move(tangents);
     }
-    
-    
-    Polygon intersection(Polygon const& poly2) {
+
+
+    Polygon intersection(Polygon const& cp) {
         
         Polygon inter;
         
+        // TODO
         
         
-        
-        return std::move(inter);
+        std::move(inter);
     }
 
 private:
@@ -637,6 +641,7 @@ std::ostream& operator<<(std::ostream& os, Polygon p) {
 }
 
 
+
 // ALGORITHMS 
 
 
@@ -679,29 +684,30 @@ Polygon convex_hull(std::vector<Point> points) {
     // Graham's scan
     Polygon cvpoly;
     
-    size_t n = points.size();    
+    size_t n = points.size();
+
     if (n > 2) {
 
-        // create z = mid point 2d
-        double xavg = 0;
-        double yavg = 0;
-        for (auto it = points.begin(); it != points.end(); ++it) {
-            xavg += it->x;
-            yavg += it->y;
+        // sort ASC by angle against Z mean point
+        //      precision to 9th decimal 
+        //      (sort ints, not doubles)
+        double xavg = 0, yavg = 0;
+        for (Point const& p: points) {
+            xavg += p.x;
+            yavg += p.y;
         }
         xavg /= n;
         yavg /= n;
-        Point z(xavg, yavg);
-    
-        // sort ASC by angle against z
+        
         std::sort(points.begin(), points.end(), 
-                    [z](Point const& p1, Point const& p2) {
-                        return point_angle_2d(p1.x-z.x, p1.y-z.y) < 
-                               point_angle_2d(p2.x-z.x, p2.y-z.y); 
+                    [xavg, yavg](Point const& p1, Point const& p2) {
+                        return (int)1000000000*point_angle_2d(p1.x - xavg, p1.y - yavg) < 
+                               (int)1000000000*point_angle_2d(p2.x - xavg, p2.y - yavg); 
                      });
+
         // pick the lowest point
         size_t i0 = 0;
-        double ymin = points[0].y;
+        int ymin = points[0].y;
         for (size_t i = 1; i < n; ++i)
             if (points[i].y < ymin) {
                 ymin = points[i].y;
@@ -713,17 +719,28 @@ Polygon convex_hull(std::vector<Point> points) {
         cvpoints.push_back(points[i0 % n]);
         cvpoints.push_back(points[(i0+1) % n]);
         
-        for (size_t i = 2; i < n + 1 ; ++i) {            
+        for (size_t i = 2; i < n + 1 ; ++i) {     
+
             cvpoints.push_back(points[(i0+i) % n]);
             
             size_t m = cvpoints.size();
-            size_t i3 = m-1;
-            size_t i2 = i3-1;
-            size_t i1 = i3-2;            
+            // int used to check for non-negativity in the loop
+            int i3 = m - 1;
+            int i2 = i3 - 1;
+            int i1 = i3 - 2;            
+            
+            // std::cout << "cvpoints(" << i << "/" << n << ") = [" 
+                      // << cvpoints[i1] << ", " 
+                      // << cvpoints[i2] << ", " 
+                      // << cvpoints[i3] << "]"
+                      // << std::endl;
 
             while (i1 >= 0 && 
                    Segment(cvpoints[i1], cvpoints[i2])
                         .point_location(cvpoints[i3]) != "LEFT") {
+
+                // std::cout << "... pop(" << i2 << ") = " << cvpoints[i2] << std::endl;
+                
                 cvpoints[i2] = cvpoints[i3];
                 cvpoints.pop_back();
                 --i1;
@@ -734,18 +751,17 @@ Polygon convex_hull(std::vector<Point> points) {
         
         // end condition
         if (*cvpoints.begin() == *(cvpoints.end()-1))
-            cvpoints.erase(cvpoints.end()-1);        
+            cvpoints.erase(cvpoints.end()-1);
 
         cvpoly.vertices = std::move(cvpoints);
         
-    } else
+    } else {
         for (auto it = points.begin(); it!= points.end(); ++it)
             cvpoly.vertices.push_back(*it);
-    
-    
+    }
+
     return std::move(cvpoly);
 }
-
 
 
 Polygon merge_cvx_poly(Polygon const& poly1, Polygon const& poly2) {
@@ -772,20 +788,22 @@ Polygon merge_cvx_poly(Polygon const& poly1, Polygon const& poly2) {
 Polygon merge_cvx_poly(std::vector<Polygon> const& polys) {
     // takes 1+ convex polygons and merges them into another convex polygon
     Polygon merged;
-    
     size_t npoly = polys.size();
     if (npoly) {
         if (npoly > 1) {
-            Polygon semimerged = merge_cvx_poly(polys[0], polys[1]);
-            for (size_t i = 2; i < npoly; ++i) {
-                Polygon tmp = merge_cvx_poly(semimerged, polys[i]);
-                semimerged = std::move(tmp);
+            
+            std::vector<Point> points;
+            for (Polygon const& poly : polys) {
+                for (Point const& p : poly.vertices) {
+                    points.push_back(p);
+                }
             }
-            merged = std::move(semimerged);            
+            merged = convex_hull(points);
+
         } else
-            merged = polys[0];
+            for (Point const& p : polys[0].vertices)
+                merged.vertices.push_back(p);
     }
-    
     return std::move(merged);
 }
 

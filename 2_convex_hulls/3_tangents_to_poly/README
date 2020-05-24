@@ -26,7 +26,7 @@ compiler: g++ v 7.4.0 (lower version is also fine)
 
 **compile with**
 ```
-g++ -I. -std=c++11 main.cpp   # will output a.out
+g++ -pipe -O2 -std=c++14 main.cpp -lm  # will output a.out
 ```
 
 **launch with**

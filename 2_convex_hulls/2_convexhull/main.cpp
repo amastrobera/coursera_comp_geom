@@ -14,22 +14,21 @@ cat data.txt | ./a.out
 #include <cmath> // atan, PI etc
 #include <cstdio> // exit
 #include <iostream> // error msg 
+#include <iterator> // next, prev
 #include <sstream>
 #include <vector> // main container 
+#include <unordered_set>
+#include <utility> 
 
 
 namespace crs {
 
-
 // POINT
-
 struct Point {
-    double x,y;
+    int x,y;
     
-    Point() {} 
-    
-    Point(double c1, double c2) : x(c1), y(c2) { }
-    
+    Point() : x(0), y(0) {} 
+    Point(int c1, int c2) : x(c1), y(c2) { }
     Point& operator=(Point const& cp) {
         if (this != &cp) {
             x = cp.x;
@@ -37,10 +36,24 @@ struct Point {
         }
         return *this;
     }
-    
     Point(Point const& cp) {
         *this = cp;
     }
+    ~Point() = default;
+    Point(Point && mv) = default;
+    
+    double distance(Point const& p) const {
+        return std::sqrt(std::pow(p.x - x, 2) + std::pow(p.y - y, 2)); 
+    }
+    
+    
+    struct hash{
+        size_t operator()(const Point &p) const {
+            size_t h1 = std::hash<int>()(p.x);
+            size_t h2 = std::hash<int>()(p.y);
+            return h1 ^ (h2 << 1);
+        }
+    };
 };
 
 
@@ -52,21 +65,39 @@ bool operator!=(Point const& p1, Point const& p2) {
     return !(p1 == p2);
 }
 
+bool operator<(Point const& p1, Point const& p2) {
+    return p1.y < p2.y || (p1.y == p2.y && p1.x < p2.x);
+}
+
+
 std::ostream& operator<<(std::ostream& os, Point p) {
     os << p.x << " " << p.y;
     return os;
 }
 
 
-// SEGMENT 
+
+// SEGMENT
 
 struct Segment {
 
     Point a, b;
     
+    Segment() {}
     Segment(Point const& p1, Point const& p2) : a(p1), b(p2) {}
+    Segment& operator=(Segment const& cp) {
+        if (this != &cp) {
+            a = cp.a;
+            b = cp.b;
+        }
+        return *this;
+    }
+    Segment(Segment const& cp) {
+        *this = cp;
+    }
 
-    std::string point_location(Point c) {
+
+    std::string point_location(Point const& c) const {
         
         double d = det(a, b, c);
         
@@ -102,12 +133,12 @@ struct Segment {
         return "ON_LINE";
     }
     
-    double length() {
+    double length() const {
         return std::sqrt(std::pow(b.x-a.x, 2) + std::pow(b.y-a.y, 2));
     }
 
 private:
-    double det(Point a, Point b, Point c) {
+    double det(Point a, Point b, Point c) const {
         return (b.x - a.x)*(c.y- a.y) - (c.x - a.x)*(b.y - a.y);
     }
 };
@@ -134,16 +165,128 @@ std::ostream& operator<<(std::ostream& os, Segment s) {
 }
 
 
-
 // RAY
+struct Ray {
+    // a (horizontal, left) ray passing by point p
+    Point p;
+    
+    bool intersects(Segment const& s) const {
+
+        int ymax = (s.b.y >= s.a.y) ? s.b.y : s.a.y;
+        int ymin = (s.b.y < s.a.y) ? s.b.y : s.a.y;
+        
+        if (p.y >= ymin && p.y <= ymax) {
+
+            // horizontal segment
+            if (s.a.y == s.b.y) {
+                int xmin = (s.a.x < s.b.x) ? s.a.x : s.b.x;
+                if (p.x >= xmin)
+                    return true;
+                return false;
+            }
+            
+            // vertical segment
+            if (s.a.x == s.b.x) {
+                if (p.x >= s.a.x)
+                    return true;
+                return false;
+            }
+            
+            // diagonal segment. make sure it points up, decide whether
+            // it point of the ray is on the right (or on the segment)
+            Segment scmp;            
+            if (s.a.y < s.b.y) {
+                scmp.a = s.a;
+                scmp.b = s.b;
+            } else {
+                scmp.a = s.b;
+                scmp.b = s.a;
+            }
+            std::string location = scmp.point_location(p);
+            
+            if (location == "RIGHT" || location == "ON_SEGMENT" )
+                return true;
+            return false;      
+        }
+
+        return false;
+    }
+    
+    std::vector<Point> intersections(Segment const& s) {
+        // return 1 or 2 intersecting points of the segment with the Ray
+        std::vector<Point> int_points;
+
+        int ymax = (s.b.y >= s.a.y) ? s.b.y : s.a.y;
+        int ymin = (s.b.y < s.a.y) ? s.b.y : s.a.y;
+        
+        if (p.y >= ymin && p.y <= ymax) {
+
+            // horizontal segment
+            if (s.a.y == s.b.y) {
+                int xmin = (s.a.x < s.b.x) ? s.a.x : s.b.x;
+                if (p.x >= s.a.x)
+                    int_points.push_back(s.a);
+                if (p.x >= s.b.x)
+                    int_points.push_back(s.b);
+            } else {
+                // vertical segment
+                if (s.a.x == s.b.x) {
+                    if (p.x >= s.a.x)
+                        int_points.push_back(Point(s.a.x, p.y));
+                } else {            
+                    // diagonal segment. make sure it points up, decide whether
+                    // it point of the ray is on the right (or on the segment)
+                    Segment scmp;            
+                    if (s.a.y < s.b.y) {
+                        scmp.a = s.a;
+                        scmp.b = s.b;
+                    } else {
+                        scmp.a = s.b;
+                        scmp.b = s.a;
+                    }
+                    std::string location = scmp.point_location(p);
+                    
+                    if (location == "RIGHT" || location == "ON_SEGMENT" ) {
+                        double m = (scmp.b.y - scmp.a.y) / (scmp.b.x - scmp.a.x);
+                        double x = scmp.a.x + (p.y - scmp.a.y) / m;
+                        int_points.push_back(Point(x, p.y)); // will be casted into int
+                        // it's so ugly to use "ints" instead of doubles for x,y
+                    }
+                }
+            
+            }
+        }
+
+        return std::move(int_points);
+    }
+};
+
+
+std::ostream& operator<<(std::ostream& os, Ray r) {
+    os << "ray (" << r.p << ")";
+    return os;
+}
 
 
 
 // POLYGON
-
 struct Polygon {
 
     std::vector<Point> vertices;
+
+    Polygon() = default;
+    ~Polygon() = default;
+    Polygon& operator=(Polygon const& cp) {
+        if (this != &cp) {
+            vertices = cp.vertices;
+        }
+        return *this;
+    }
+    Polygon(Polygon const& cp) {
+        *this = cp;
+    }
+    
+    Polygon (Polygon && mv) = default;
 
     std::string type() {
         if (is_convex())
@@ -151,7 +294,7 @@ struct Polygon {
         return "NOT_CONVEX";
     }
 
-    bool is_convex() {
+    bool is_convex() const {
         // checks that the polygon is convex by using right/left turn definition
         // assumes vertices are in counter clockwise order
         bool is_ccw = true;
@@ -169,7 +312,7 @@ struct Polygon {
         return is_ccw;
     }
 
-    bool is_valid() {
+    bool is_valid() const {
         // checks that the polygon has at least 3 edges
         //      and those are in counter-clockwise
         //      and no 3 consecutive vertices are collinear
@@ -205,7 +348,17 @@ struct Polygon {
     }
 
 
-    std::string point_location(Point const& p) {
+    std::string point_location(Point const& p) const {
+        if (is_convex())
+            return point_location_cvx(p); // nicer looking, used only for convex poly
+        return point_location_not_cvx(p); // used in any case
+    }
+    
+
+private:
+
+    std::string point_location_cvx(Point const& p) const {
+        
         bool is_inside = true;
         bool is_border = false;
         size_t n = vertices.size();
@@ -228,6 +381,58 @@ struct Polygon {
             return "INSIDE";
         return "OUTSIDE";
     }
+    
+    std::string point_location_not_cvx(Point const& p) const {
+    
+        // logic: 
+        //      1. check if point is a a border --> BORDER
+        //      2. trace a ray and count the intersections
+        //          2.1 UNIQUE intersections (handles the case of ray intersecting 
+        //              a vertex (2 edges)
+        //          2.2 if num(intersections) is odd --> INSIDE
+        //              also handles the case of ray intersecting a horizontal edge
+        //              (2 x 2 unique points --> 2 points is even)
+    
+        bool is_border = false;
+        std::unordered_set<Point, Point::hash> unique_intersections;        
+                
+        Ray ray;
+        ray.p = p;
+        
+        size_t n = vertices.size();
+        
+        for (size_t i1 = 0; i1 < n; ++i1) {
+        
+            size_t i2 = (i1 + 1) % n; // circular list! 
+            
+            Segment seg(vertices[i1], vertices[i2]);
+            
+            std::string loc = seg.point_location(p);
+
+            // handles degenerate cases of border points
+            if (loc == "ON_SEGMENT") {
+                is_border = true;
+                break;
+            }
+            
+            std::vector<Point> inters = ray.intersections(seg);
+            for (Point const& p : inters) {
+                //debug
+                // std::cout << ray << " intersects " << seg << std::endl;
+                unique_intersections.emplace(p);
+            }
+        }
+    
+        if (is_border)
+            return "BORDER";
+        
+        // N(int) is odd -> inside, if N(int) is even -> outside
+        if (unique_intersections.size() % 2 != 0) 
+            return "INSIDE";
+            
+        return "OUTSIDE";
+    }
+
 
 };
 
@@ -245,6 +450,7 @@ std::ostream& operator<<(std::ostream& os, Polygon p) {
 
 
 // ALGORITHMS 
+
 
 #define _USE_MATH_DEFINES
 
@@ -281,34 +487,26 @@ double point_angle_2d(double x, double y) {
 }
 
 
-
 Polygon convex_hull(std::vector<Point> points) {
     // Graham's scan
     Polygon cvpoly;
     
-    size_t n = points.size();    
+    size_t n = points.size();
+
     if (n > 2) {
 
-        // create z = mid point 2d
-        double xavg = 0;
-        double yavg = 0;
-        for (auto it = points.begin(); it != points.end(); ++it) {
-            xavg += it->x;
-            yavg += it->y;
-        }
-        xavg /= n;
-        yavg /= n;
-        Point z(xavg, yavg);
-    
-        // sort ASC by angle against z
+        // sort ASC by angle against O(0,0)
+        //      precision to 6th decimal 
+        //      (sort ints, not doubles)
         std::sort(points.begin(), points.end(), 
-                    [z](Point const& p1, Point const& p2) {
-                        return point_angle_2d(p1.x-z.x, p1.y-z.y) < 
-                               point_angle_2d(p2.x-z.x, p2.y-z.y); 
+                    [](Point const& p1, Point const& p2) {
+                        return (int)1000000*point_angle_2d(p1.x, p1.y) < 
+                               (int)1000000*point_angle_2d(p2.x, p2.y); 
                      });
+
         // pick the lowest point
         size_t i0 = 0;
-        double ymin = points[0].y;
+        int ymin = points[0].y;
         for (size_t i = 1; i < n; ++i)
             if (points[i].y < ymin) {
                 ymin = points[i].y;
@@ -320,17 +518,20 @@ Polygon convex_hull(std::vector<Point> points) {
         cvpoints.push_back(points[i0 % n]);
         cvpoints.push_back(points[(i0+1) % n]);
         
-        for (size_t i = 2; i < n + 1 ; ++i) {            
+        for (size_t i = 2; i < n + 1 ; ++i) {     
+
             cvpoints.push_back(points[(i0+i) % n]);
             
             size_t m = cvpoints.size();
-            size_t i3 = m-1;
-            size_t i2 = i3-1;
-            size_t i1 = i3-2;            
+            // int used to check for non-negativity in the loop
+            int i3 = m - 1;
+            int i2 = i3 - 1;
+            int i1 = i3 - 2;            
 
             while (i1 >= 0 && 
                    Segment(cvpoints[i1], cvpoints[i2])
                         .point_location(cvpoints[i3]) != "LEFT") {
+
                 cvpoints[i2] = cvpoints[i3];
                 cvpoints.pop_back();
                 --i1;
@@ -341,15 +542,15 @@ Polygon convex_hull(std::vector<Point> points) {
         
         // end condition
         if (*cvpoints.begin() == *(cvpoints.end()-1))
-            cvpoints.erase(cvpoints.end()-1);        
+            cvpoints.erase(cvpoints.end()-1);
 
         cvpoly.vertices = std::move(cvpoints);
         
-    } else
+    } else {
         for (auto it = points.begin(); it!= points.end(); ++it)
             cvpoly.vertices.push_back(*it);
-    
-    
+    }
+
     return std::move(cvpoly);
 }
 
@@ -384,7 +585,7 @@ int main() {
     std::vector<crs::Point> points;
 
     bool input_error = false;
-    double input_limit = 1000000;
+    int input_limit = 1000000;
 
     while (numverts--) {
 

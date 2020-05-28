@@ -540,11 +540,46 @@ struct Polygon {
 
     Polygon intersection(Polygon const& cp) {
         
+        // Sutherland-Hodgman algortihm        
+        std::vector<Point> points(vertices.begin(); vertices.end());
+        
+        size_t m = cp.vertices.size();
+        for (size_t i1 = 0; i1 < m; ++i1) {
+            size_t i2 = (i1+1) % m;
+            
+            // clippping edge
+            clp_edge = Segment(cp.vertices[i1], cp.vertices[i2]);
+            std::vector<Point> new_points;
+            
+            size_t n = points.size();
+            for (size_t j1 = 0; j1 < n; ++j1) {
+                size_t j2 = (j1+1) % n;
+                std::string loc_j1 = clp_edge.point_location(points[j1]);
+                std::string loc_j2 = clp_edge.point_location(points[j2]);
+                bool j1_inside = (loc_j1 == "ON_SEGMENT" || loc_j1 == "LEFT");
+                bool j2_inside = (loc_j2 == "ON_SEGMENT" || loc_j2 == "LEFT");
+                
+                
+                if (j1_inside && j2_inside) {
+                    // case 1: both points are inside
+                    new_points.push_back(vertices[j1]);
+                    new_points.push_back(vertices[j2]);
+                    
+                } else if (j1_inside && !j2_inside) {
+                    // case 2: only first point is inside
+                    new_points.push_back(vertices[j1]);
+                    new_points.push_back(vertices[j2]);
+                }
+                
+                
+                
+            }
+            
+        } 
+        
+        
         Polygon inter;
-        
-        // TODO
-        
-        
+        inter.vertices = std::move(new_points);
         std::move(inter);
     }
 

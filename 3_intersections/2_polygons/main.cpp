@@ -40,7 +40,7 @@ struct Point {
         *this = cp;
     }
     ~Point() = default;
-    Point(Point && mv) = default;
+    Point(Point && mv) : x(mv.x), y(mv.y) { } 
     
     double distance(Point const& p) const {
         return std::sqrt(std::pow(p.x - x, 2) + std::pow(p.y - y, 2)); 
@@ -173,7 +173,7 @@ struct Segment {
         // step 2: check for parallelism
         //       d = | a1  b1 |
         //           | a2  b2 |
-         
+        
         double d = a1*b2 - a2*b1;
         if (d == 0) {
             // lines are parallel
@@ -376,7 +376,9 @@ struct Polygon {
         *this = cp;
     }
     
-    Polygon (Polygon && mv) = default;
+    Polygon (Polygon && mv) {
+        vertices = std::move(mv.vertices);
+    }
 
     std::string type() {
         if (is_convex())
@@ -541,45 +543,82 @@ struct Polygon {
     Polygon intersection(Polygon const& cp) {
         
         // Sutherland-Hodgman algortihm        
-        std::vector<Point> points(vertices.begin(); vertices.end());
+        std::vector<Point> points(vertices.begin(), vertices.end());
+        
+        std::cout << "original poly points" << std::endl;
+        for (auto p : points)
+            std::cout << p << " ";
+        std::cout << std::endl;
         
         size_t m = cp.vertices.size();
+        
+        std::cout << "clipping poly points" << std::endl;
+        for (auto p : cp.vertices)
+            std::cout << p << " ";
+        std::cout << std::endl;
+        
         for (size_t i1 = 0; i1 < m; ++i1) {
-            size_t i2 = (i1+1) % m;
+            size_t i2 = (i1 + 1) % m;
             
             // clippping edge
-            clp_edge = Segment(cp.vertices[i1], cp.vertices[i2]);
-            std::vector<Point> new_points;
+            Segment clp_edge(cp.vertices[i1], cp.vertices[i2]);
             
+            std::cout << "clp_edge = " << clp_edge << std::endl;
+            
+            std::vector<Point> new_points;
+
             size_t n = points.size();
+            if (n == 0)
+                break;
+
             for (size_t j1 = 0; j1 < n; ++j1) {
-                size_t j2 = (j1+1) % n;
+
+                size_t j2 = (j1 + 1) % n;
+
                 std::string loc_j1 = clp_edge.point_location(points[j1]);
                 std::string loc_j2 = clp_edge.point_location(points[j2]);
                 bool j1_inside = (loc_j1 == "ON_SEGMENT" || loc_j1 == "LEFT");
                 bool j2_inside = (loc_j2 == "ON_SEGMENT" || loc_j2 == "LEFT");
-                
+
+                std::cout << "j1, val, loc = (" 
+                          << j1 << ", (" << points[j1] << "), " << loc_j1 
+                          << ")" << std::endl;
+                std::cout << "j2, val, loc = (" 
+                          << j2 << ", (" << points[j2] << "), " << loc_j2 
+                          << ")" << std::endl;
                 
                 if (j1_inside && j2_inside) {
                     // case 1: both points are inside
-                    new_points.push_back(vertices[j1]);
-                    new_points.push_back(vertices[j2]);
-                    
+                    new_points.push_back(points[j1]);
+                    new_points.push_back(points[j2]);
+                    std::cout << j1 << " " << j2 << " both inside: add " 
+                              << points[j1] << points[j2] << std::endl;
+
                 } else if (j1_inside && !j2_inside) {
                     // case 2: only first point is inside
-                    new_points.push_back(vertices[j1]);
-                    new_points.push_back(vertices[j2]);
+                    new_points.push_back(points[j1]);
+                    std::cout << j1 << " inside: add " 
+                              << points[j1] << std::endl;
+
+                } else if (!j1_inside && j2_inside) {
+                    // case 3: only second point is inside
+                    new_points.push_back(points[j2]);
+                    std::cout << j1 << " inside: add " 
+                              << points[j1] << std::endl;
+
+                } else if (!j1_inside && !j2_inside) {
+                    // case 2: both are outside, nothing to do
+                    std::cout << j1 << " " << j2 
+                              << " both outside" << std::endl;
+
                 }
-                
-                
-                
+
             }
-            
+            points = std::move(new_points); // replace with newly clipped points 
         } 
         
-        
         Polygon inter;
-        inter.vertices = std::move(new_points);
+        inter.vertices = std::move(points);
         std::move(inter);
     }
 
@@ -934,9 +973,16 @@ int main() {
 
     }
 
+    cout << "done parsing" << endl;
 
     crs::Polygon inter = poly1.intersection(poly2);
+    
+    cout << "done intersection " << endl;
+    
     size_t m = inter.vertices.size();
+    
+    cout << "done inter.vertices.size()" << endl;
+    
     cout << m << endl;
     
     for (size_t i = 0; i < m; ++i) {

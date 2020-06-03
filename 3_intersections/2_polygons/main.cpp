@@ -150,7 +150,10 @@ struct Segment {
     }
     
     
-    std::string intersect(Segment const& seg2) const {
+    std::vector<Point> intersections(Segment const& seg2) const {
+        // return no-point, one-point, two-points (common line segment)
+        //      resulting from the intersection of this segment with seg2
+        
         
         // step 1: make system of 2 (implicit) equations + 2 unknowns
         //      implicit a*x + b*y = c, for each segment
@@ -161,6 +164,8 @@ struct Segment {
         // debug only
         // std::cout << "s1:" << p1 << " -> " << p2
                   // << ", s2: " << seg2.p1 << " -> " << seg2.p2 << "; ";
+
+        std::vector<Point> intersections;
 
         double a1 = p1.y - p2.y;
         double b1 = p2.x - p1.x;
@@ -179,12 +184,43 @@ struct Segment {
             // lines are parallel
 
             // step 2.3: check if a segment is inside another
-            if (point_location(seg2.p1) == "ON_SEGMENT" || 
-                point_location(seg2.p2) == "ON_SEGMENT" ) {
-                return "A common segment of non-zero length.";
+            std::string line2_p1_loc = point_location(seg2.p1);
+            std::string line2_p2_loc = point_location(seg2.p2);
+
+            //   case 1: line1 inside line2
+            if (line2_p1_loc == "ON_SEGMENT" && line2_p2_loc == "ON_SEGMENT") {
+                intersections.push_back(seg2.p1);
+                intersections.push_back(seg2.p2);
             }
+
+            //   case 2: line1 half line2
+            if (line2_p1_loc == "ON_SEGMENT" && line2_p2_loc == "ON_LINE") {
+                if (seg2.point_location(p1) == "ON_SEGMENT") {
+                    intersections.push_back(seg2.p1);
+                    intersections.push_back(p1);
+                } else {
+                    intersections.push_back(seg2.p1);
+                    intersections.push_back(p2);
+                }        
+            }
+
+            //   case 3: line1 half line2, on the other side
+            if (line2_p1_loc == "ON_LINE" && line2_p2_loc == "ON_SEGMENT") {
+                if (point_location(seg2.p1) == "ON_SEGMENT") {
+                    intersections.push_back(seg2.p2);
+                    intersections.push_back(p1);
+                } else {
+                    intersections.push_back(seg2.p2);
+                    intersections.push_back(p2);
+                }
             
-            return "No common points.";
+            }
+
+            //   case 4: line2 inside line1
+            else if (line2_p1_loc == "ON_LINE" && line2_p2_loc == "ON_LINE") {
+                intersections.push_back(p1);
+                intersections.push_back(p2);
+            }
             
         } else {
             
@@ -202,19 +238,14 @@ struct Segment {
             // step 3.1: check that the intersection is inside the domain
             if (     point_location(inter) == "ON_SEGMENT" && 
                 seg2.point_location(inter) == "ON_SEGMENT") {
-                std::ostringstream os;
-                os << "The intersection point is (" 
-                   << inter.x << ", " << inter.y << ").";
-                return os.str();                
+                intersections.push_back(inter);
             }
-            
-            //           ... if it's not, no intersection 
-            return "No common points.";
         }
         
-        return "";
+        return intersections;
     }
     
+
 
 private:
     double det(Point const& a, Point const& b, Point const& c) const {
@@ -470,9 +501,10 @@ struct Polygon {
                         size_t idx1 = (i) % n;
                         size_t idx2 = (i + 1) % n;
                         
-                        if (Segment(vertices[idx1], p).point_location(vertices[idx0]) != "RIGHT" 
-                            && 
-                            Segment(vertices[idx1], p).point_location(vertices[idx2]) != "RIGHT") {
+                        if (Segment(vertices[idx1], p).point_location(
+                                vertices[idx0]) != "RIGHT"  && 
+                            Segment(vertices[idx1], p).point_location(
+                                vertices[idx2]) != "RIGHT") {
                             // found first (right-most tangent v[i]-p)
                             
                             // find the farmost tangent : search for points on line                            
@@ -488,9 +520,10 @@ struct Polygon {
                                 idx1 = (i + j) % n;
                                 idx2 = (i + j + 1) % n;
 
-                                if (Segment(p, vertices[idx1]).point_location(vertices[idx0]) != "RIGHT" 
-                                    && 
-                                    Segment(p, vertices[idx1]).point_location(vertices[idx2]) == "LEFT") {
+                                if (Segment(p, vertices[idx1]).point_location(
+                                        vertices[idx0]) != "RIGHT"  && 
+                                    Segment(p, vertices[idx1]).point_location(
+                                        vertices[idx2]) == "LEFT") {
                                     // found second (right-most tangent p-v[j])
                                     
                                     // find the farmost tangent : search for points on line                            
@@ -597,14 +630,25 @@ struct Polygon {
                 } else if (j1_inside && !j2_inside) {
                     // case 2: only first point is inside
                     new_points.push_back(points[j1]);
+                    Point inter = clp_edge.intersections(
+                                            Segment(points[j1], points[j2]))[0];
+                    new_points.push_back(inter);
                     std::cout << j1 << " inside: add " 
-                              << points[j1] << std::endl;
+                              << "j1 = " << points[j1] 
+                              << " + inter = " << inter << std::endl;
 
                 } else if (!j1_inside && j2_inside) {
                     // case 3: only second point is inside
+                    Point inter = clp_edge.intersections(
+                                            Segment(points[j1], points[j2]))[0];
+                    new_points.push_back(inter);
                     new_points.push_back(points[j2]);
-                    std::cout << j1 << " inside: add " 
-                              << points[j1] << std::endl;
+                    
+                   std::cout << j2 << " inside: add " 
+                              << " inter = " << inter 
+                              << " + j2 = " << points[j1] 
+                              << std::endl;
+
 
                 } else if (!j1_inside && !j2_inside) {
                     // case 2: both are outside, nothing to do

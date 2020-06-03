@@ -590,8 +590,9 @@ struct Polygon {
             std::cout << p << " ";
         std::cout << std::endl;
         
-        for (size_t i1 = 0; i1 < m; ++i1) {
-            size_t i2 = (i1 + 1) % m;
+        size_t i1 = 0;
+        size_t i2 = 1;
+        while (i2 < m) {
             
             // clippping edge
             Segment clp_edge(cp.vertices[i1], cp.vertices[i2]);
@@ -601,12 +602,13 @@ struct Polygon {
             std::vector<Point> new_points;
 
             size_t n = points.size();
+            std::cout << "points.size = " << n << std::endl;
             if (n == 0)
                 break;
 
-            for (size_t j1 = 0; j1 < n; ++j1) {
-
-                size_t j2 = (j1 + 1) % n;
+            size_t j1 = 0;
+            size_t j2 = 1;
+            while (j2 < n) {
 
                 std::string loc_j1 = clp_edge.point_location(points[j1]);
                 std::string loc_j2 = clp_edge.point_location(points[j2]);
@@ -622,33 +624,43 @@ struct Polygon {
                 
                 if (j1_inside && j2_inside) {
                     // case 1: both points are inside
-                    new_points.push_back(points[j1]);
+                    if (new_points.size() == 0 || 
+                        *(new_points.end()-1) != points[j1])
+                        new_points.push_back(points[j1]);
                     new_points.push_back(points[j2]);
                     std::cout << j1 << " " << j2 << " both inside: add " 
-                              << points[j1] << points[j2] << std::endl;
+                              << points[j1] << ", " << points[j2] << std::endl;
 
                 } else if (j1_inside && !j2_inside) {
                     // case 2: only first point is inside
-                    new_points.push_back(points[j1]);
-                    Point inter = clp_edge.intersections(
-                                            Segment(points[j1], points[j2]))[0];
-                    new_points.push_back(inter);
+                    if (new_points.size() == 0 || 
+                        *(new_points.end()-1) != points[j1])
+                        new_points.push_back(points[j1]);
+                    
+                    auto inters = clp_edge.intersections(
+                                            Segment(points[j1], points[j2]));
+                    if (inters.size())
+                        new_points.push_back(inters[0]);
+
                     std::cout << j1 << " inside: add " 
-                              << "j1 = " << points[j1] 
-                              << " + inter = " << inter << std::endl;
+                              << " j1 = " << points[j1];
+                    if (inters.size())
+                        std::cout << ", clp_inter = " << inters[0];
+                    std::cout << std::endl;
 
                 } else if (!j1_inside && j2_inside) {
                     // case 3: only second point is inside
-                    Point inter = clp_edge.intersections(
-                                            Segment(points[j1], points[j2]))[0];
-                    new_points.push_back(inter);
+                    auto inters = clp_edge.intersections(
+                                            Segment(points[j1], points[j2]));
+                    if (inters.size())
+                        new_points.push_back(inters[0]);
                     new_points.push_back(points[j2]);
-                    
-                   std::cout << j2 << " inside: add " 
-                              << " inter = " << inter 
-                              << " + j2 = " << points[j1] 
-                              << std::endl;
 
+                    std::cout << j2 << " inside: add ";
+                    if (inters.size())
+                        std::cout << "clp_inter = " << inters[0];
+                    std::cout << ", j2 = " << points[j2]
+                              << std::endl;
 
                 } else if (!j1_inside && !j2_inside) {
                     // case 2: both are outside, nothing to do
@@ -657,13 +669,19 @@ struct Polygon {
 
                 }
 
+                j1 = j2;
+                ++j2;
             }
+          
             points = std::move(new_points); // replace with newly clipped points 
+            
+            i1 = i2;
+            ++i2;
         } 
-        
+
         Polygon inter;
         inter.vertices = std::move(points);
-        std::move(inter);
+        return std::move(inter);
     }
 
 private:
@@ -1017,23 +1035,21 @@ int main() {
 
     }
 
-    cout << "done parsing" << endl;
-
     crs::Polygon inter = poly1.intersection(poly2);
-    
-    cout << "done intersection " << endl;
     
     size_t m = inter.vertices.size();
     
-    cout << "done inter.vertices.size()" << endl;
     
     cout << m << endl;
     
-    for (size_t i = 0; i < m; ++i) {
-        cout << inter.vertices[i].x << " " 
-             << inter.vertices[i].y;
-        if (i < m -1)
-            cout << " ";
+    if (m) {
+        for (size_t i = 0; i < m; ++i) {
+            cout << inter.vertices[i].x << " " 
+                 << inter.vertices[i].y;
+            if (i < m -1)
+                cout << " ";
+        }
+        cout << endl;
     }
   
     return 0;

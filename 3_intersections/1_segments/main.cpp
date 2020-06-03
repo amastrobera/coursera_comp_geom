@@ -150,7 +150,10 @@ struct Segment {
     }
     
     
-    std::string intersect(Segment const& seg2) const {
+    std::vector<Point> intersections(Segment const& seg2) const {
+        // return no-point, one-point, two-points (common line segment)
+        //      resulting from the intersection of this segment with seg2
+        
         
         // step 1: make system of 2 (implicit) equations + 2 unknowns
         //      implicit a*x + b*y = c, for each segment
@@ -161,6 +164,8 @@ struct Segment {
         // debug only
         // std::cout << "s1:" << p1 << " -> " << p2
                   // << ", s2: " << seg2.p1 << " -> " << seg2.p2 << "; ";
+
+        std::vector<Point> intersections;
 
         double a1 = p1.y - p2.y;
         double b1 = p2.x - p1.x;
@@ -173,18 +178,49 @@ struct Segment {
         // step 2: check for parallelism
         //       d = | a1  b1 |
         //           | a2  b2 |
-         
+        
         double d = a1*b2 - a2*b1;
         if (d == 0) {
             // lines are parallel
 
             // step 2.3: check if a segment is inside another
-            if (point_location(seg2.p1) == "ON_SEGMENT" || 
-                point_location(seg2.p2) == "ON_SEGMENT" ) {
-                return "A common segment of non-zero length.";
+            std::string line2_p1_loc = point_location(seg2.p1);
+            std::string line2_p2_loc = point_location(seg2.p2);
+
+            //   case 1: line1 inside line2
+            if (line2_p1_loc == "ON_SEGMENT" && line2_p2_loc == "ON_SEGMENT") {
+                intersections.push_back(seg2.p1);
+                intersections.push_back(seg2.p2);
             }
+
+            //   case 2: line1 half line2
+            if (line2_p1_loc == "ON_SEGMENT" && line2_p2_loc == "ON_LINE") {
+                if (seg2.point_location(p1) == "ON_SEGMENT") {
+                    intersections.push_back(seg2.p1);
+                    intersections.push_back(p1);
+                } else {
+                    intersections.push_back(seg2.p1);
+                    intersections.push_back(p2);
+                }        
+            }
+
+            //   case 3: line1 half line2, on the other side
+            if (line2_p1_loc == "ON_LINE" && line2_p2_loc == "ON_SEGMENT") {
+                if (point_location(seg2.p1) == "ON_SEGMENT") {
+                    intersections.push_back(seg2.p2);
+                    intersections.push_back(p1);
+                } else {
+                    intersections.push_back(seg2.p2);
+                    intersections.push_back(p2);
+                }
             
-            return "No common points.";
+            }
+
+            //   case 4: line2 inside line1
+            else if (line2_p1_loc == "ON_LINE" && line2_p2_loc == "ON_LINE") {
+                intersections.push_back(p1);
+                intersections.push_back(p2);
+            }
             
         } else {
             
@@ -202,19 +238,14 @@ struct Segment {
             // step 3.1: check that the intersection is inside the domain
             if (     point_location(inter) == "ON_SEGMENT" && 
                 seg2.point_location(inter) == "ON_SEGMENT") {
-                std::ostringstream os;
-                os << "The intersection point is (" 
-                   << inter.x << ", " << inter.y << ").";
-                return os.str();                
+                intersections.push_back(inter);
             }
-            
-            //           ... if it's not, no intersection 
-            return "No common points.";
         }
         
-        return "";
+        return intersections;
     }
-    
+
+     
 
 private:
     double det(Point const& a, Point const& b, Point const& c) const {
@@ -859,7 +890,17 @@ int main() {
         exit(1);
     }
 
-    cout << s1.intersect(s2) << endl;
+    std::vector<crs::Point> inters = s1.intersections(s2);
+    
+    if (inters.size() == 0)
+        cout <<  "No common points." << endl;
+    else if (inters.size() == 1) {
+        std::ostringstream os;
+        cout << "The intersection point is (" 
+           << inters[0].x << ", " << inters[0].y << ")." << endl;
+    } else {
+        cout <<  "A common segment of non-zero length." << endl;
+    }
   
     return 0;
 }

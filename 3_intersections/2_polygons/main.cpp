@@ -391,6 +391,8 @@ std::ostream& operator<<(std::ostream& os, Ray r) {
 
 
 // POLYGON
+class Polygon;
+Polygon convex_hull(std::vector<Point> points); // fwd declaration
 struct Polygon {
 
     std::vector<Point> vertices;
@@ -573,114 +575,68 @@ struct Polygon {
     }
 
 
-    Polygon intersection(Polygon const& cp) {
+    Polygon intersection(Polygon const& clipPolygon) {
         
-        // Sutherland-Hodgman algortihm        
-        std::vector<Point> points(vertices.begin(), vertices.end());
+        // Sutherland-Hodgman algortihm
         
-        std::cout << "original poly points" << std::endl;
-        for (auto p : points)
-            std::cout << p << " ";
-        std::cout << std::endl;
-        
-        size_t m = cp.vertices.size();
-        
-        std::cout << "clipping poly points" << std::endl;
-        for (auto p : cp.vertices)
-            std::cout << p << " ";
-        std::cout << std::endl;
-        
-        size_t i1 = 0;
-        size_t i2 = 1;
-        while (i2 < m) {
+        std::vector<Point> outputList(vertices.begin(), vertices.end());  
+
+        size_t m = clipPolygon.vertices.size();
+        for (size_t i1 = 0; i1 < m; ++i1) {
             
-            // clippping edge
-            Segment clp_edge(cp.vertices[i1], cp.vertices[i2]);
-            
-            std::cout << "clp_edge = " << clp_edge << std::endl;
-            
-            std::vector<Point> new_points;
+            size_t i2 = (i1 + 1) % m;
+            Segment clipEdge(clipPolygon.vertices[i1], clipPolygon.vertices[i2]);
 
-            size_t n = points.size();
-            std::cout << "points.size = " << n << std::endl;
-            if (n == 0)
-                break;
+            std::vector<Point> inputList(outputList.begin(), outputList.end());
+            outputList.clear();
 
-            size_t j1 = 0;
-            size_t j2 = 1;
-            while (j2 < n) {
-
-                std::string loc_j1 = clp_edge.point_location(points[j1]);
-                std::string loc_j2 = clp_edge.point_location(points[j2]);
-                bool j1_inside = (loc_j1 == "ON_SEGMENT" || loc_j1 == "LEFT");
-                bool j2_inside = (loc_j2 == "ON_SEGMENT" || loc_j2 == "LEFT");
-
-                std::cout << "j1, val, loc = (" 
-                          << j1 << ", (" << points[j1] << "), " << loc_j1 
-                          << ")" << std::endl;
-                std::cout << "j2, val, loc = (" 
-                          << j2 << ", (" << points[j2] << "), " << loc_j2 
-                          << ")" << std::endl;
+            size_t n = inputList.size();
+            for (size_t j1 = 0; j1 < n; ++j1) {
                 
-                if (j1_inside && j2_inside) {
-                    // case 1: both points are inside
-                    if (new_points.size() == 0 || 
-                        *(new_points.end()-1) != points[j1])
-                        new_points.push_back(points[j1]);
-                    new_points.push_back(points[j2]);
-                    std::cout << j1 << " " << j2 << " both inside: add " 
-                              << points[j1] << ", " << points[j2] << std::endl;
+                size_t j2 = (j1 + 1) % n;
+                Point prev_point = inputList[j1];
+                Point current_point = inputList[j2];
 
-                } else if (j1_inside && !j2_inside) {
-                    // case 2: only first point is inside
-                    if (new_points.size() == 0 || 
-                        *(new_points.end()-1) != points[j1])
-                        new_points.push_back(points[j1]);
-                    
-                    auto inters = clp_edge.intersections(
-                                            Segment(points[j1], points[j2]));
-                    if (inters.size())
-                        new_points.push_back(inters[0]);
+                std::string loc_j1 = clipEdge.point_location(prev_point);
+                std::string loc_j2 = clipEdge.point_location(current_point);
+                bool prev_point_inside = (loc_j1 == "ON_SEGMENT" || loc_j1 == "LEFT");
+                bool current_point_inside = (loc_j2 == "ON_SEGMENT" || loc_j2 == "LEFT");
 
-                    std::cout << j1 << " inside: add " 
-                              << " j1 = " << points[j1];
-                    if (inters.size())
-                        std::cout << ", clp_inter = " << inters[0];
-                    std::cout << std::endl;
+                auto intersecting_points = clipEdge.intersections(
+                                        Segment(prev_point, current_point));
 
-                } else if (!j1_inside && j2_inside) {
-                    // case 3: only second point is inside
-                    auto inters = clp_edge.intersections(
-                                            Segment(points[j1], points[j2]));
-                    if (inters.size())
-                        new_points.push_back(inters[0]);
-                    new_points.push_back(points[j2]);
+                if (current_point_inside) {
+                    if (!prev_point_inside) {
+                        if (intersecting_points.size())
+                            outputList.push_back(intersecting_points[0]);
+                    }
+                    outputList.push_back(current_point);
 
-                    std::cout << j2 << " inside: add ";
-                    if (inters.size())
-                        std::cout << "clp_inter = " << inters[0];
-                    std::cout << ", j2 = " << points[j2]
-                              << std::endl;
-
-                } else if (!j1_inside && !j2_inside) {
-                    // case 2: both are outside, nothing to do
-                    std::cout << j1 << " " << j2 
-                              << " both outside" << std::endl;
-
+                } else { 
+                    if (prev_point_inside)
+                        if (intersecting_points.size())
+                            outputList.push_back(intersecting_points[0]);
                 }
 
-                j1 = j2;
-                ++j2;
             }
-          
-            points = std::move(new_points); // replace with newly clipped points 
-            
-            i1 = i2;
-            ++i2;
-        } 
+        }
+        
+        // degenerate case: if the clipping polygon is inside 
+        //  (or partially inside) this polygon
+
+        bool has_degenerate_points = false;
+        for (Point const& p: clipPolygon.vertices) {
+            if (point_location(p) == "INSIDE") {
+                has_degenerate_points = true;
+                outputList.push_back(p);
+            }
+        }
+        if (has_degenerate_points)
+            return convex_hull(outputList);
+        
 
         Polygon inter;
-        inter.vertices = std::move(points);
+        inter.vertices = std::move(outputList);
         return std::move(inter);
     }
 

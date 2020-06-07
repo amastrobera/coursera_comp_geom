@@ -40,7 +40,7 @@ struct Point {
         *this = cp;
     }
     ~Point() = default;
-    Point(Point && mv) = default;
+    Point(Point && mv) : x(mv.x), y(mv.y) { } 
     
     double distance(Point const& p) const {
         return std::sqrt(std::pow(p.x - x, 2) + std::pow(p.y - y, 2)); 
@@ -150,7 +150,10 @@ struct Segment {
     }
     
     
-    std::string intersect(Segment const& seg2) const {
+    std::vector<Point> intersections(Segment const& seg2) const {
+        // return no-point, one-point, two-points (common line segment)
+        //      resulting from the intersection of this segment with seg2
+        
         
         // step 1: make system of 2 (implicit) equations + 2 unknowns
         //      implicit a*x + b*y = c, for each segment
@@ -161,6 +164,8 @@ struct Segment {
         // debug only
         // std::cout << "s1:" << p1 << " -> " << p2
                   // << ", s2: " << seg2.p1 << " -> " << seg2.p2 << "; ";
+
+        std::vector<Point> intersections;
 
         double a1 = p1.y - p2.y;
         double b1 = p2.x - p1.x;
@@ -173,18 +178,49 @@ struct Segment {
         // step 2: check for parallelism
         //       d = | a1  b1 |
         //           | a2  b2 |
-         
+        
         double d = a1*b2 - a2*b1;
         if (d == 0) {
             // lines are parallel
 
             // step 2.3: check if a segment is inside another
-            if (point_location(seg2.p1) == "ON_SEGMENT" || 
-                point_location(seg2.p2) == "ON_SEGMENT" ) {
-                return "A common segment of non-zero length.";
+            std::string line2_p1_loc = point_location(seg2.p1);
+            std::string line2_p2_loc = point_location(seg2.p2);
+
+            //   case 1: line1 inside line2
+            if (line2_p1_loc == "ON_SEGMENT" && line2_p2_loc == "ON_SEGMENT") {
+                intersections.push_back(seg2.p1);
+                intersections.push_back(seg2.p2);
             }
+
+            //   case 2: line1 half line2
+            if (line2_p1_loc == "ON_SEGMENT" && line2_p2_loc == "ON_LINE") {
+                if (seg2.point_location(p1) == "ON_SEGMENT") {
+                    intersections.push_back(seg2.p1);
+                    intersections.push_back(p1);
+                } else {
+                    intersections.push_back(seg2.p1);
+                    intersections.push_back(p2);
+                }        
+            }
+
+            //   case 3: line1 half line2, on the other side
+            if (line2_p1_loc == "ON_LINE" && line2_p2_loc == "ON_SEGMENT") {
+                if (point_location(seg2.p1) == "ON_SEGMENT") {
+                    intersections.push_back(seg2.p2);
+                    intersections.push_back(p1);
+                } else {
+                    intersections.push_back(seg2.p2);
+                    intersections.push_back(p2);
+                }
             
-            return "No common points.";
+            }
+
+            //   case 4: line2 inside line1
+            else if (line2_p1_loc == "ON_LINE" && line2_p2_loc == "ON_LINE") {
+                intersections.push_back(p1);
+                intersections.push_back(p2);
+            }
             
         } else {
             
@@ -202,19 +238,14 @@ struct Segment {
             // step 3.1: check that the intersection is inside the domain
             if (     point_location(inter) == "ON_SEGMENT" && 
                 seg2.point_location(inter) == "ON_SEGMENT") {
-                std::ostringstream os;
-                os << "The intersection point is (" 
-                   << inter.x << ", " << inter.y << ").";
-                return os.str();                
+                intersections.push_back(inter);
             }
-            
-            //           ... if it's not, no intersection 
-            return "No common points.";
         }
         
-        return "";
+        return intersections;
     }
     
+
 
 private:
     double det(Point const& a, Point const& b, Point const& c) const {
@@ -360,6 +391,8 @@ std::ostream& operator<<(std::ostream& os, Ray r) {
 
 
 // POLYGON
+class Polygon;
+Polygon convex_hull(std::vector<Point> points); // fwd declaration
 struct Polygon {
 
     std::vector<Point> vertices;
@@ -376,7 +409,9 @@ struct Polygon {
         *this = cp;
     }
     
-    Polygon (Polygon && mv) = default;
+    Polygon (Polygon && mv) {
+        vertices = std::move(mv.vertices);
+    }
 
     std::string type() {
         if (is_convex())
@@ -468,9 +503,10 @@ struct Polygon {
                         size_t idx1 = (i) % n;
                         size_t idx2 = (i + 1) % n;
                         
-                        if (Segment(vertices[idx1], p).point_location(vertices[idx0]) != "RIGHT" 
-                            && 
-                            Segment(vertices[idx1], p).point_location(vertices[idx2]) != "RIGHT") {
+                        if (Segment(vertices[idx1], p).point_location(
+                                vertices[idx0]) != "RIGHT"  && 
+                            Segment(vertices[idx1], p).point_location(
+                                vertices[idx2]) != "RIGHT") {
                             // found first (right-most tangent v[i]-p)
                             
                             // find the farmost tangent : search for points on line                            
@@ -486,9 +522,10 @@ struct Polygon {
                                 idx1 = (i + j) % n;
                                 idx2 = (i + j + 1) % n;
 
-                                if (Segment(p, vertices[idx1]).point_location(vertices[idx0]) != "RIGHT" 
-                                    && 
-                                    Segment(p, vertices[idx1]).point_location(vertices[idx2]) == "LEFT") {
+                                if (Segment(p, vertices[idx1]).point_location(
+                                        vertices[idx0]) != "RIGHT"  && 
+                                    Segment(p, vertices[idx1]).point_location(
+                                        vertices[idx2]) == "LEFT") {
                                     // found second (right-most tangent p-v[j])
                                     
                                     // find the farmost tangent : search for points on line                            
@@ -537,6 +574,71 @@ struct Polygon {
         return std::move(tangents);
     }
 
+
+    Polygon intersection(Polygon const& clipPolygon) {
+        
+        // Sutherland-Hodgman algortihm
+        
+        std::vector<Point> outputList(vertices.begin(), vertices.end());  
+
+        size_t m = clipPolygon.vertices.size();
+        for (size_t i1 = 0; i1 < m; ++i1) {
+            
+            size_t i2 = (i1 + 1) % m;
+            Segment clipEdge(clipPolygon.vertices[i1], clipPolygon.vertices[i2]);
+
+            std::vector<Point> inputList(outputList.begin(), outputList.end());
+            outputList.clear();
+
+            size_t n = inputList.size();
+            for (size_t j1 = 0; j1 < n; ++j1) {
+                
+                size_t j2 = (j1 + 1) % n;
+                Point prev_point = inputList[j1];
+                Point current_point = inputList[j2];
+
+                std::string loc_j1 = clipEdge.point_location(prev_point);
+                std::string loc_j2 = clipEdge.point_location(current_point);
+                bool prev_point_inside = (loc_j1 == "ON_SEGMENT" || loc_j1 == "LEFT");
+                bool current_point_inside = (loc_j2 == "ON_SEGMENT" || loc_j2 == "LEFT");
+
+                auto intersecting_points = clipEdge.intersections(
+                                        Segment(prev_point, current_point));
+
+                if (current_point_inside) {
+                    if (!prev_point_inside) {
+                        if (intersecting_points.size())
+                            outputList.push_back(intersecting_points[0]);
+                    }
+                    outputList.push_back(current_point);
+
+                } else { 
+                    if (prev_point_inside)
+                        if (intersecting_points.size())
+                            outputList.push_back(intersecting_points[0]);
+                }
+
+            }
+        }
+        
+        // degenerate case: if the clipping polygon is inside 
+        //  (or partially inside) this polygon
+
+        bool has_degenerate_points = false;
+        for (Point const& p: clipPolygon.vertices) {
+            if (point_location(p) == "INSIDE") {
+                has_degenerate_points = true;
+                outputList.push_back(p);
+            }
+        }
+        if (has_degenerate_points)
+            return convex_hull(outputList);
+        
+
+        Polygon inter;
+        inter.vertices = std::move(outputList);
+        return std::move(inter);
+    }
 
 private:
 
@@ -798,22 +900,8 @@ Polygon merge_cvx_poly(std::vector<Polygon> const& polys) {
 }
 
 
-size_t sweep_intersections_number(std::vector<Segment>) {
-    
-    
-    return 0;
-}
-
-
-std::vector<Segment> sweep_intersection_lines(std::vector<Segment>) {
-    
-    std::vector<Segment> inters;
-    
-    
-    return std::move(inters);
-}
-
 } 
+
 
 
 
